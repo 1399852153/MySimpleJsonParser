@@ -39,7 +39,9 @@ public class TestHugeLevelJsonParse {
             long start = System.currentTimeMillis();
             StackBaseJsonParser stackBaseJsonParser = new StackBaseJsonParser(new StreamJsonTokenReader(hugeLevelJson));
             JsonElement obj = stackBaseJsonParser.doParse();
-            System.out.println("stackBaseJsonParser parse cost=" + (System.currentTimeMillis() - start));
+            int arrayLevel = TestUtil.getSpecialJsonArrayLevel(obj);
+            Assert.assertEquals(arrayLevel, level - 1);
+            System.out.println("stackBaseJsonParser parse cost=" + (System.currentTimeMillis() - start) + ",arrayLevel=" + arrayLevel);
         }
     }
 }

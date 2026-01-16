@@ -1,6 +1,8 @@
 package com.xiongyx.my.simple.json.util;
 
 import com.xiongyx.my.simple.json.parser.model.JsonArray;
+import com.xiongyx.my.simple.json.parser.model.JsonElement;
+import com.xiongyx.my.simple.json.parser.model.JsonObject;
 
 public class TestUtil {
 
@@ -31,9 +33,23 @@ public class TestUtil {
         return stringBuilder.toString();
     }
 
-    public static int getSpecialJsonArrayLevel(JsonArray jsonArray){
-        // todo
+    public static int getSpecialJsonArrayLevel(JsonElement obj){
+        if(!(obj instanceof JsonArray)){
+            return 0;
+        }
+        JsonArray jsonArray = (JsonArray)obj;
+        int level = 0;
+        JsonArray currentArr = jsonArray;
+        while(currentArr.getArray() != null && !currentArr.getArray().isEmpty()){
+            JsonElement jsonElement = currentArr.getArray().get(0);
+            if(jsonElement instanceof JsonArray){
+                currentArr = (JsonArray) jsonElement;
+                level++;
+            }else{
+                return level;
+            }
+        }
 
-        return 0;
+        return level;
     }
 }
