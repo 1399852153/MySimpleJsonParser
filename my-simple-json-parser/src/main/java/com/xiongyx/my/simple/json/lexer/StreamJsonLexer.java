@@ -1,5 +1,6 @@
 package com.xiongyx.my.simple.json.lexer;
 
+import com.xiongyx.my.simple.json.exception.MuJsonParserException;
 import com.xiongyx.my.simple.json.lexer.enums.JsonTokenTypeEnum;
 import com.xiongyx.my.simple.json.lexer.model.JsonToken;
 import com.xiongyx.my.simple.json.util.CommonStringUtil;
@@ -62,7 +63,7 @@ public class StreamJsonLexer extends AbstractJsonLexer{
                 // whiteSpace 直接跳过
                 doLexContext.currentIndex++;
             } else{
-                throw new RuntimeException("unexpected character: " + ch + ",charIndex=" + doLexContext.currentIndex);
+                throw new MuJsonParserException("unexpected character: " + ch + ",charIndex=" + doLexContext.currentIndex);
             }
         }
     }

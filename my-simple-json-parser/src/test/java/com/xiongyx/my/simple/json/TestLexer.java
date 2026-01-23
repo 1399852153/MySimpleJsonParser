@@ -15,15 +15,15 @@ public class TestLexer {
     public void testTokenParse() {
         // 不报错就算成功
         for(String json : JsonTestStrConstants.testBaseJsonArr){
-            StaticJsonLexer staticJsonLexer = new StaticJsonLexer();
-            List<JsonToken> jsonTokenList = staticJsonLexer.doLex(json);
+            StaticJsonLexer staticJsonLexer = new StaticJsonLexer(json);
+            List<JsonToken> jsonTokenList = staticJsonLexer.doLex();
             System.out.println(jsonTokenList);
             Assert.assertEquals(jsonTokenList.get(jsonTokenList.size() - 1).getType(), JsonTokenTypeEnum.EOF);
         }
 
         for(String json : JsonTestStrConstants.testJsonArr){
-            StaticJsonLexer staticJsonLexer = new StaticJsonLexer();
-            List<JsonToken> jsonTokenList = staticJsonLexer.doLex(json);
+            StaticJsonLexer staticJsonLexer = new StaticJsonLexer(json);
+            List<JsonToken> jsonTokenList = staticJsonLexer.doLex();
             System.out.println(jsonTokenList.size());
             Assert.assertEquals(jsonTokenList.get(jsonTokenList.size() - 1).getType(), JsonTokenTypeEnum.EOF);
         }

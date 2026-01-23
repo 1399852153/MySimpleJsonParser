@@ -1,5 +1,6 @@
 package com.xiongyx.my.simple.json.parser.recursive.statemachine;
 
+import com.xiongyx.my.simple.json.exception.MuJsonParserException;
 import com.xiongyx.my.simple.json.lexer.enums.JsonTokenTypeEnum;
 import com.xiongyx.my.simple.json.lexer.model.JsonToken;
 import com.xiongyx.my.simple.json.parser.model.JsonArray;
@@ -28,7 +29,7 @@ public class JsonObjectParseStatementMachine extends AbstractJsonParseStatementM
             JsonToken token = jsonTokenReader.peek();
 
             if(token.getType() != JsonTokenTypeEnum.LEFT_BRACE){
-                throw new RuntimeException("unexpected token! index=" + jsonTokenReader.currentIndex());
+                throw new MuJsonParserException("unexpected token! index=" + jsonTokenReader.currentIndex());
             }
 
             accept(jsonTokenReader);
@@ -54,7 +55,7 @@ public class JsonObjectParseStatementMachine extends AbstractJsonParseStatementM
                 return 3;
             }
 
-            throw new RuntimeException("unexpected token! index=" + jsonTokenReader.currentIndex());
+            throw new MuJsonParserException("unexpected token! index=" + jsonTokenReader.currentIndex());
         }
     }
 
@@ -78,7 +79,7 @@ public class JsonObjectParseStatementMachine extends AbstractJsonParseStatementM
                 return 4;
             }
 
-            throw new RuntimeException("unexpected token! index=" + jsonTokenReader.currentIndex());
+            throw new MuJsonParserException("unexpected token! index=" + jsonTokenReader.currentIndex());
         }
     }
 
@@ -123,7 +124,7 @@ public class JsonObjectParseStatementMachine extends AbstractJsonParseStatementM
                 return 5;
             }
 
-            throw new RuntimeException("unexpected token! index=" + jsonTokenReader.currentIndex());
+            throw new MuJsonParserException("unexpected token! index=" + jsonTokenReader.currentIndex());
         }
     }
 
@@ -143,7 +144,7 @@ public class JsonObjectParseStatementMachine extends AbstractJsonParseStatementM
                 return 6;
             }
 
-            throw new RuntimeException("unexpected token! index=" + jsonTokenReader.currentIndex());
+            throw new MuJsonParserException("unexpected token! index=" + jsonTokenReader.currentIndex());
         }
     }
 
@@ -160,7 +161,7 @@ public class JsonObjectParseStatementMachine extends AbstractJsonParseStatementM
                 return 3;
             }
 
-            throw new RuntimeException("unexpected token! index=" + jsonTokenReader.currentIndex());
+            throw new MuJsonParserException("unexpected token! index=" + jsonTokenReader.currentIndex());
         }
     }
 }

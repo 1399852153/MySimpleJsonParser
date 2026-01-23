@@ -1,5 +1,6 @@
 package com.xiongyx.my.simple.json.lexer.statemachine;
 
+import com.xiongyx.my.simple.json.exception.MuJsonParserException;
 import com.xiongyx.my.simple.json.lexer.model.DoLexContext;
 
 import java.util.Map;
@@ -19,7 +20,7 @@ public abstract class LexStatementMachine {
         if(isFinalState){
             return oneTokenAcceptResult.toString();
         }else{
-            throw new RuntimeException(String.format("currentState is not finalState! acceptResult=%s, acceptResult=%s",currentState, oneTokenAcceptResult));
+            throw new MuJsonParserException(String.format("currentState is not finalState! acceptResult=%s, acceptResult=%s",currentState, oneTokenAcceptResult));
         }
     }
 
@@ -39,7 +40,7 @@ public abstract class LexStatementMachine {
             LexStateHandler targetStateHandler = stateHandlers[currentState];
             if(currentState >= stateHandlers.length){
                 // 有bug
-                throw new RuntimeException(String.format("unknown state! currentState=%s",currentState));
+                throw new MuJsonParserException(String.format("unknown state! currentState=%s",currentState));
             }
 
             currentState = targetStateHandler.processInState(chars,doLexContext,oneTokenAcceptResult);

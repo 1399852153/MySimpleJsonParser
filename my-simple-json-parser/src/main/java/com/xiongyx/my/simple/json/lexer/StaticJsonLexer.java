@@ -1,21 +1,23 @@
 package com.xiongyx.my.simple.json.lexer;
 
+import com.xiongyx.my.simple.json.exception.MuJsonParserException;
 import com.xiongyx.my.simple.json.lexer.enums.JsonTokenTypeEnum;
-import com.xiongyx.my.simple.json.lexer.model.DoLexContext;
 import com.xiongyx.my.simple.json.lexer.model.JsonToken;
-import com.xiongyx.my.simple.json.lexer.statemachine.*;
 import com.xiongyx.my.simple.json.util.CommonStringUtil;
 
 import java.util.List;
 
-public class StaticJsonLexer {
+public class StaticJsonLexer extends AbstractJsonLexer{
+
+    public StaticJsonLexer(String jsonString) {
+        super(jsonString);
+    }
 
     /**
      * 一次完整的扫描，非流式的处理
      * */
-    public List<JsonToken> doLex(String jsonStr){
-        DoLexContext doLexContext = new DoLexContext();
-        char[] chars = jsonStr.toCharArray();
+    public List<JsonToken> doLex(){
+        char[] chars = super.jsonStringArray;
 
         // 相当于是状态0
         while(doLexContext.currentIndex < chars.length){
@@ -47,32 +49,33 @@ public class StaticJsonLexer {
                     doLexContext.currentIndex++;
                     break;
                 case '"':
-                    parseString(chars, doLexContext);
+                    doLexContext.tokenCollector.add(parseString(chars, doLexContext));
                     break;
                 case 't':
                     // 尝试解析true关键字
-                    parseTrueKeyword(chars, doLexContext);
+                    doLexContext.tokenCollector.add(parseTrueKeyword(chars, doLexContext));
                     break;
                 case 'f':
                     // 尝试解析false关键字
-                    parseFalseKeyword(chars, doLexContext);
+                    doLexContext.tokenCollector.add(parseFalseKeyword(chars, doLexContext));
                     break;
                 case 'n':
                     // 尝试解析null关键字
-                    parseNullKeyword(chars, doLexContext);
+                    doLexContext.tokenCollector.add(parseNullKeyword(chars, doLexContext));
                     break;
                 default:
                     // 其它case
                     if(ch == '-' || CommonStringUtil.is0_9(ch)){
                         // number解析
-                        parseNumber(chars, doLexContext);
+                        JsonToken numberToken = parseNumber(chars, doLexContext);
+                        doLexContext.tokenCollector.add(numberToken);
                         break;
                     }else if(CommonStringUtil.isWhitespace(ch)){
                         // whiteSpace 直接跳过
                         doLexContext.currentIndex++;
                         break;
                     }else{
-                        throw new RuntimeException("unexpected character: " + ch + " at index " + doLexContext.currentIndex);
+                        throw new MuJsonParserException("unexpected character: " + ch + " at index " + doLexContext.currentIndex);
                     }
             }
         }
@@ -82,46 +85,11 @@ public class StaticJsonLexer {
         return doLexContext.tokenCollector;
     }
 
-    private void parseNumber(char[] chars, DoLexContext doLexContext){
-        // number类型的内容
-        String numberStr = new NumberLexStatemachine().tryParse(chars,doLexContext);
-
-        doLexContext.tokenCollector.add(new JsonToken(JsonTokenTypeEnum.NUMBER, numberStr));
-    }
-
-    private void parseString(char[] chars, DoLexContext doLexContext){
-        // string类型的内容
-        String stringStr = new StringLexStatemachine().tryParse(chars,doLexContext);
-
-        doLexContext.tokenCollector.add(new JsonToken(JsonTokenTypeEnum.STRING, stringStr));
-    }
-
-    private void parseTrueKeyword(char[] chars, DoLexContext doLexContext){
-        // true关键字
-        String stringStr = new KeywordTrueLexStatementMachine().tryParse(chars,doLexContext);
-
-        doLexContext.tokenCollector.add(new JsonToken(JsonTokenTypeEnum.TRUE, stringStr));
-    }
-
-    private void parseFalseKeyword(char[] chars, DoLexContext doLexContext){
-        // false关键字
-        String stringStr = new KeywordFalseLexStatementMachine().tryParse(chars,doLexContext);
-
-        doLexContext.tokenCollector.add(new JsonToken(JsonTokenTypeEnum.FALSE, stringStr));
-    }
-
-    private void parseNullKeyword(char[] chars, DoLexContext doLexContext){
-        // null关键字
-        String stringStr = new KeywordNullLexStatementMachine().tryParse(chars,doLexContext);
-
-        doLexContext.tokenCollector.add(new JsonToken(JsonTokenTypeEnum.NULL, stringStr));
-    }
-
     public static void main(String[] args) {
         String json = "{\"a\": true}";
 
-        StaticJsonLexer staticJsonLexer = new StaticJsonLexer();
-        List<JsonToken> jsonTokenList = staticJsonLexer.doLex(json);
+        StaticJsonLexer staticJsonLexer = new StaticJsonLexer(json);
+        List<JsonToken> jsonTokenList = staticJsonLexer.doLex();
         System.out.println(jsonTokenList);
     }
 }

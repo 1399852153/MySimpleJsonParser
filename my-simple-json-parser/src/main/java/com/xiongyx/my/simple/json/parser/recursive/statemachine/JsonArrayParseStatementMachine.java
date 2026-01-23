@@ -1,5 +1,6 @@
 package com.xiongyx.my.simple.json.parser.recursive.statemachine;
 
+import com.xiongyx.my.simple.json.exception.MuJsonParserException;
 import com.xiongyx.my.simple.json.lexer.enums.JsonTokenTypeEnum;
 import com.xiongyx.my.simple.json.lexer.model.JsonToken;
 import com.xiongyx.my.simple.json.parser.model.JsonArray;
@@ -27,7 +28,7 @@ public class JsonArrayParseStatementMachine extends AbstractJsonParseStatementMa
             JsonToken token = jsonTokenReader.peek();
 
             if(token.getType() != JsonTokenTypeEnum.LEFT_BRACKET){
-                throw new RuntimeException("unexpected token! index=" + jsonTokenReader.currentIndex());
+                throw new MuJsonParserException("unexpected token! index=" + jsonTokenReader.currentIndex());
             }
 
             accept(jsonTokenReader);
@@ -79,7 +80,7 @@ public class JsonArrayParseStatementMachine extends AbstractJsonParseStatementMa
                 return 3;
             }
 
-            throw new RuntimeException("unexpected token! index=" + jsonTokenReader.currentIndex());
+            throw new MuJsonParserException("unexpected token! index=" + jsonTokenReader.currentIndex());
         }
     }
 
@@ -108,7 +109,7 @@ public class JsonArrayParseStatementMachine extends AbstractJsonParseStatementMa
                 return 4;
             }
 
-            throw new RuntimeException("unexpected token! index=" + jsonTokenReader.currentIndex());
+            throw new MuJsonParserException("unexpected token! index=" + jsonTokenReader.currentIndex());
         }
     }
 
@@ -151,7 +152,7 @@ public class JsonArrayParseStatementMachine extends AbstractJsonParseStatementMa
                 return 3;
             }
 
-            throw new RuntimeException("unexpected token! index=" + jsonTokenReader.currentIndex());
+            throw new MuJsonParserException("unexpected token! index=" + jsonTokenReader.currentIndex());
         }
     }
 }

@@ -1,5 +1,6 @@
 package com.xiongyx.my.simple.json.lexer.statemachine;
 
+import com.xiongyx.my.simple.json.exception.MuJsonParserException;
 import com.xiongyx.my.simple.json.lexer.model.DoLexContext;
 
 import java.util.HashMap;
@@ -71,7 +72,7 @@ public abstract class KeywordLexStatementMachine extends LexStatementMachine{
                 return nextState;
             }
 
-            throw new RuntimeException("unexpected char " + currentChar + " " + doLexContext.currentIndex);
+            throw new MuJsonParserException("unexpected char " + currentChar + " " + doLexContext.currentIndex);
         }
 
         @Override

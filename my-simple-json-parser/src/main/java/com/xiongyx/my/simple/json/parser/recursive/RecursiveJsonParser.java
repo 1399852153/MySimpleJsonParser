@@ -1,5 +1,6 @@
 package com.xiongyx.my.simple.json.parser.recursive;
 
+import com.xiongyx.my.simple.json.exception.MuJsonParserException;
 import com.xiongyx.my.simple.json.lexer.enums.JsonTokenTypeEnum;
 import com.xiongyx.my.simple.json.lexer.model.JsonToken;
 import com.xiongyx.my.simple.json.parser.JsonParser;
@@ -40,6 +41,6 @@ public class RecursiveJsonParser extends JsonParser {
         }
 
         // 第一个token，不属于json规则的f(1)集合
-        throw new RuntimeException("unexpected start json token! token=" + jsonTokenReader.currentIndex());
+        throw new MuJsonParserException("unexpected start json token! token=" + jsonTokenReader.currentIndex());
     }
 }

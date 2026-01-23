@@ -1,5 +1,6 @@
 package com.xiongyx.my.simple.json.parser.stackbase;
 
+import com.xiongyx.my.simple.json.exception.MuJsonParserException;
 import com.xiongyx.my.simple.json.lexer.enums.JsonTokenTypeEnum;
 import com.xiongyx.my.simple.json.lexer.model.JsonToken;
 import com.xiongyx.my.simple.json.parser.JsonParser;
@@ -80,13 +81,13 @@ public class StackBaseJsonParser extends JsonParser {
                     processInParseArr3(token);
                     break;
                 default:
-                    throw new RuntimeException("Unexpected currentStatus: " + currentStatus);
+                    throw new MuJsonParserException("Unexpected currentStatus: " + currentStatus);
             }
         }
 
         // 如果json字符串是合法的，那么最后栈顶必然是有且唯一的一个JsonElement类型的对象
         if(this.parseStack.size() != 1){
-            throw new RuntimeException("after parse，stack element size > 1! stack=" + this.parseStack);
+            throw new MuJsonParserException("after parse，stack element size > 1! stack=" + this.parseStack);
         }
 
         JsonParseStackValue object = this.parseStack.pop();
@@ -114,12 +115,12 @@ public class StackBaseJsonParser extends JsonParser {
         }
 
         // 第一个token，不属于json规则的f(1)集合
-        throw new RuntimeException("unexpected start json token! token=" + jsonTokenReader.currentIndex());
+        throw new MuJsonParserException("unexpected start json token! token=" + jsonTokenReader.currentIndex());
     }
 
     private void processInParseObject0(JsonToken token){
         if(token.getType() != JsonTokenTypeEnum.LEFT_BRACE){
-            throw new RuntimeException("unexpected token! index=" + jsonTokenReader.currentIndex());
+            throw new MuJsonParserException("unexpected token! index=" + jsonTokenReader.currentIndex());
         }
 
         accept();
@@ -141,13 +142,13 @@ public class StackBaseJsonParser extends JsonParser {
             return;
         }
 
-        throw new RuntimeException("unexpected token! index=" + jsonTokenReader.currentIndex());
+        throw new MuJsonParserException("unexpected token! index=" + jsonTokenReader.currentIndex());
     }
 
     private void processInParseObject2(JsonToken token){
         // 遇到'}'才会进来
         if(token.getType() != JsonTokenTypeEnum.RIGHT_BRACE){
-            throw new RuntimeException("unexpected token! index=" + jsonTokenReader.currentIndex());
+            throw new MuJsonParserException("unexpected token! index=" + jsonTokenReader.currentIndex());
         }else{
             accept();
         }
@@ -183,7 +184,7 @@ public class StackBaseJsonParser extends JsonParser {
                 this.currentStatus = StackBaseJsonParserStatusEnum.PARSE_OBJECT_2;
                 return;
             }else{
-                throw new RuntimeException("unexpected token! index=" + jsonTokenReader.currentIndex()+1);
+                throw new MuJsonParserException("unexpected token! index=" + jsonTokenReader.currentIndex()+1);
             }
 
         }else if(topObjType == JsonParseStackValueTypeEnum.JSON_ARRAY){
@@ -201,11 +202,11 @@ public class StackBaseJsonParser extends JsonParser {
                 this.currentStatus = StackBaseJsonParserStatusEnum.PARSE_ARR_2;
                 return;
             }else{
-                throw new RuntimeException("unexpected token! index=" + jsonTokenReader.currentIndex()+1);
+                throw new MuJsonParserException("unexpected token! index=" + jsonTokenReader.currentIndex()+1);
             }
         }else{
             // 别的情况都说明有问题，不是合法的json
-            throw new RuntimeException("unexpected token! index=" + jsonTokenReader.currentIndex());
+            throw new MuJsonParserException("unexpected token! index=" + jsonTokenReader.currentIndex());
         }
     }
 
@@ -216,7 +217,7 @@ public class StackBaseJsonParser extends JsonParser {
             return;
         }
 
-        throw new RuntimeException("unexpected token! index=" + jsonTokenReader.currentIndex());
+        throw new MuJsonParserException("unexpected token! index=" + jsonTokenReader.currentIndex());
     }
 
     private void processInParseObject4(JsonToken token){
@@ -261,11 +262,11 @@ public class StackBaseJsonParser extends JsonParser {
                 this.currentStatus = StackBaseJsonParserStatusEnum.PARSE_OBJECT_2;
                 return;
             }else{
-                throw new RuntimeException("unexpected token! index=" + jsonTokenReader.currentIndex()+1);
+                throw new MuJsonParserException("unexpected token! index=" + jsonTokenReader.currentIndex()+1);
             }
         }
 
-        throw new RuntimeException("unexpected token! index=" + jsonTokenReader.currentIndex());
+        throw new MuJsonParserException("unexpected token! index=" + jsonTokenReader.currentIndex());
     }
 
     private void processInParseObject5(JsonToken token){
@@ -275,7 +276,7 @@ public class StackBaseJsonParser extends JsonParser {
             return;
         }
 
-        throw new RuntimeException("unexpected token! index=" + jsonTokenReader.currentIndex());
+        throw new MuJsonParserException("unexpected token! index=" + jsonTokenReader.currentIndex());
     }
 
     private void processInParseObject6(JsonToken token){
@@ -287,7 +288,7 @@ public class StackBaseJsonParser extends JsonParser {
             return;
         }
 
-        throw new RuntimeException("unexpected token! index=" + jsonTokenReader.currentIndex());
+        throw new MuJsonParserException("unexpected token! index=" + jsonTokenReader.currentIndex());
     }
 
     private void processInParseArr0(JsonToken token){
@@ -297,7 +298,7 @@ public class StackBaseJsonParser extends JsonParser {
             return;
         }
 
-        throw new RuntimeException("unexpected token! index=" + jsonTokenReader.currentIndex());
+        throw new MuJsonParserException("unexpected token! index=" + jsonTokenReader.currentIndex());
     }
 
     private void processInParseArr1(JsonToken token){
@@ -342,17 +343,17 @@ public class StackBaseJsonParser extends JsonParser {
                 this.currentStatus = StackBaseJsonParserStatusEnum.PARSE_ARR_2;
                 return;
             }else{
-                throw new RuntimeException("unexpected token! index=" + jsonTokenReader.currentIndex()+1);
+                throw new MuJsonParserException("unexpected token! index=" + jsonTokenReader.currentIndex()+1);
             }
         }
 
-        throw new RuntimeException("unexpected token! index=" + jsonTokenReader.currentIndex());
+        throw new MuJsonParserException("unexpected token! index=" + jsonTokenReader.currentIndex());
     }
 
     private void processInParseArr2(JsonToken token){
         // 遇到']'才会进来
         if(token.getType() != JsonTokenTypeEnum.RIGHT_BRACKET){
-            throw new RuntimeException("unexpected token! index=" + jsonTokenReader.currentIndex());
+            throw new MuJsonParserException("unexpected token! index=" + jsonTokenReader.currentIndex());
         }else{
             accept();
         }
@@ -389,7 +390,7 @@ public class StackBaseJsonParser extends JsonParser {
                 this.currentStatus = StackBaseJsonParserStatusEnum.PARSE_OBJECT_2;
                 return;
             }else{
-                throw new RuntimeException("unexpected token! index=" + jsonTokenReader.currentIndex()+1);
+                throw new MuJsonParserException("unexpected token! index=" + jsonTokenReader.currentIndex()+1);
             }
 
         }else if(topObjType == JsonParseStackValueTypeEnum.JSON_ARRAY){
@@ -407,11 +408,11 @@ public class StackBaseJsonParser extends JsonParser {
                 this.currentStatus = StackBaseJsonParserStatusEnum.PARSE_ARR_2;
                 return;
             }else{
-                throw new RuntimeException("unexpected token! index=" + jsonTokenReader.currentIndex()+1);
+                throw new MuJsonParserException("unexpected token! index=" + jsonTokenReader.currentIndex()+1);
             }
         }else{
             // 别的情况都说明有问题，不是合法的json
-            throw new RuntimeException("unexpected token! index=" + jsonTokenReader.currentIndex());
+            throw new MuJsonParserException("unexpected token! index=" + jsonTokenReader.currentIndex());
         }
     }
 
@@ -422,6 +423,6 @@ public class StackBaseJsonParser extends JsonParser {
             return;
         }
 
-        throw new RuntimeException("unexpected token! index=" + jsonTokenReader.currentIndex());
+        throw new MuJsonParserException("unexpected token! index=" + jsonTokenReader.currentIndex());
     }
 }

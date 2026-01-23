@@ -1,5 +1,6 @@
 package com.xiongyx.my.simple.json.util;
 
+import com.xiongyx.my.simple.json.exception.MuJsonParserException;
 import com.xiongyx.my.simple.json.parser.model.JsonArray;
 import com.xiongyx.my.simple.json.parser.model.JsonElement;
 import com.xiongyx.my.simple.json.parser.model.JsonObject;
@@ -15,7 +16,7 @@ public class TestUtil {
         for(int i=1; i< objects.length; i++){
             Object item = objects[i];
             if(!obj.equals(item)){
-                throw new RuntimeException(String.format("%s != %s",obj, item));
+                throw new MuJsonParserException(String.format("%s != %s",obj, item));
             }
         }
     }

@@ -6,6 +6,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.core.util.DefaultIndenter;
 import com.fasterxml.jackson.core.util.DefaultPrettyPrinter;
 import com.fasterxml.jackson.databind.*;
+import com.xiongyx.my.simple.json.exception.MuJsonParserException;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -45,7 +46,7 @@ public class JackSonUtil {
         try {
             return obj instanceof String ? (String) obj : objectMapper.writeValueAsString(obj);
         } catch (Exception e) {
-            throw new RuntimeException("obj2StringPretty parse error",e);
+            throw new MuJsonParserException("obj2StringPretty parse error",e);
         }
     }
 
@@ -69,7 +70,7 @@ public class JackSonUtil {
 
             return obj instanceof String ? (String) obj : objectMapper.writer(printer).writeValueAsString(obj);
         } catch (Exception e) {
-            throw new RuntimeException("obj2StringPretty parse error",e);
+            throw new MuJsonParserException("obj2StringPretty parse error",e);
         }
     }
 
@@ -84,7 +85,7 @@ public class JackSonUtil {
         try {
             return clazz.equals(String.class) ? (T) str : objectMapper.readValue(str, clazz);
         } catch (Exception e) {
-            throw new RuntimeException("string2Obj parse error",e);
+            throw new MuJsonParserException("string2Obj parse error",e);
         }
     }
 
@@ -99,7 +100,7 @@ public class JackSonUtil {
         try {
             return (T) (typeReference.getType().equals(String.class) ? str : objectMapper.readValue(str, typeReference));
         } catch (Exception e) {
-            throw new RuntimeException("string2Obj parse error",e);
+            throw new MuJsonParserException("string2Obj parse error",e);
         }
     }
 
@@ -116,7 +117,7 @@ public class JackSonUtil {
         try {
             return objectMapper.readValue(str, javaType);
         } catch (Exception e) {
-            throw new RuntimeException("string2Obj parse error",e);
+            throw new MuJsonParserException("string2Obj parse error",e);
         }
     }
 

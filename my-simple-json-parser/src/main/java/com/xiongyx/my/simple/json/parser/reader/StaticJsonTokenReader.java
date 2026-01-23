@@ -15,8 +15,8 @@ public class StaticJsonTokenReader implements JsonTokenReader {
     public StaticJsonTokenReader(String jsonString) {
         this.currentIndex = 0;
 
-        StaticJsonLexer staticJsonLexer = new StaticJsonLexer();
-        this.tokens  = staticJsonLexer.doLex(jsonString);
+        StaticJsonLexer staticJsonLexer = new StaticJsonLexer(jsonString);
+        this.tokens = staticJsonLexer.doLex();
     }
 
     @Override

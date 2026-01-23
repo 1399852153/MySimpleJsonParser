@@ -1,5 +1,6 @@
 package com.xiongyx.my.simple.json.lexer.statemachine;
 
+import com.xiongyx.my.simple.json.exception.MuJsonParserException;
 import com.xiongyx.my.simple.json.lexer.model.DoLexContext;
 import com.xiongyx.my.simple.json.util.CommonStringUtil;
 
@@ -78,7 +79,7 @@ public class NumberLexStatemachine extends LexStatementMachine{
                 return 3;
             }
 
-            throw new RuntimeException("unexpected char " + currentChar + " " + doLexContext.currentIndex);
+            throw new MuJsonParserException("unexpected char " + currentChar + " " + doLexContext.currentIndex);
         }
     }
 
@@ -95,7 +96,7 @@ public class NumberLexStatemachine extends LexStatementMachine{
                 return 7;
             }
 
-            throw new RuntimeException("unexpected char '" + currentChar + "', index=" + doLexContext.currentIndex);
+            throw new MuJsonParserException("unexpected char '" + currentChar + "', index=" + doLexContext.currentIndex);
         }
     }
 
@@ -112,7 +113,7 @@ public class NumberLexStatemachine extends LexStatementMachine{
                 return 3;
             }
 
-            throw new RuntimeException("unexpected char " + currentChar + " " + doLexContext.currentIndex);
+            throw new MuJsonParserException("unexpected char " + currentChar + " " + doLexContext.currentIndex);
         }
     }
 
@@ -134,7 +135,7 @@ public class NumberLexStatemachine extends LexStatementMachine{
                 return 4;
             }
 
-            throw new RuntimeException("unexpected char " + currentChar + " " + doLexContext.currentIndex);
+            throw new MuJsonParserException("unexpected char " + currentChar + " " + doLexContext.currentIndex);
         }
     }
 
@@ -156,7 +157,7 @@ public class NumberLexStatemachine extends LexStatementMachine{
                 return 4;
             }
 
-            throw new RuntimeException("unexpected char " + currentChar + " " + doLexContext.currentIndex);
+            throw new MuJsonParserException("unexpected char " + currentChar + " " + doLexContext.currentIndex);
         }
     }
 
@@ -168,7 +169,7 @@ public class NumberLexStatemachine extends LexStatementMachine{
                 return 6;
             }
 
-            throw new RuntimeException("unexpected char " + currentChar + " " + doLexContext.currentIndex);
+            throw new MuJsonParserException("unexpected char " + currentChar + " " + doLexContext.currentIndex);
         }
     }
 
@@ -185,7 +186,7 @@ public class NumberLexStatemachine extends LexStatementMachine{
                 return 7;
             }
 
-            throw new RuntimeException("unexpected char " + currentChar + " " + doLexContext.currentIndex);
+            throw new MuJsonParserException("unexpected char " + currentChar + " " + doLexContext.currentIndex);
         }
     }
 
@@ -202,7 +203,7 @@ public class NumberLexStatemachine extends LexStatementMachine{
                 return 8;
             }
 
-            throw new RuntimeException("unexpected char " + currentChar + " " + doLexContext.currentIndex);
+            throw new MuJsonParserException("unexpected char " + currentChar + " " + doLexContext.currentIndex);
         }
     }
 
@@ -214,7 +215,7 @@ public class NumberLexStatemachine extends LexStatementMachine{
                 return 9;
             }
 
-            throw new RuntimeException("unexpected char " + currentChar + " " + doLexContext.currentIndex);
+            throw new MuJsonParserException("unexpected char " + currentChar + " " + doLexContext.currentIndex);
         }
     }
 
@@ -226,7 +227,7 @@ public class NumberLexStatemachine extends LexStatementMachine{
                 return 9;
             }
 
-            throw new RuntimeException("unexpected char " + currentChar + " " + doLexContext.currentIndex);
+            throw new MuJsonParserException("unexpected char " + currentChar + " " + doLexContext.currentIndex);
         }
     }
 }

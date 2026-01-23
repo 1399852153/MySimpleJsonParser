@@ -1,5 +1,6 @@
 package com.xiongyx.my.simple.json.parser.recursive.statemachine;
 
+import com.xiongyx.my.simple.json.exception.MuJsonParserException;
 import com.xiongyx.my.simple.json.parser.model.JsonElement;
 import com.xiongyx.my.simple.json.parser.reader.JsonTokenReader;
 import com.xiongyx.my.simple.json.parser.recursive.RecursiveDoParserContext;
@@ -26,7 +27,7 @@ public class AbstractJsonParseStatementMachine<T extends JsonElement> {
             ParserStateHandler targetStateHandler = stateHandlers[currentState];
             if(currentState >= stateHandlers.length){
                 // 有bug
-                throw new RuntimeException(String.format("unknown state! currentState=%s",currentState));
+                throw new MuJsonParserException(String.format("unknown state! currentState=%s",currentState));
             }
 
             currentState = targetStateHandler.processInState(jsonTokenReader, recursiveDoParserContext);

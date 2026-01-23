@@ -1,5 +1,6 @@
 package com.xiongyx.my.simple.json.statemachine;
 
+import com.xiongyx.my.simple.json.exception.MuJsonParserException;
 import com.xiongyx.my.simple.json.lexer.model.DoLexContext;
 import com.xiongyx.my.simple.json.lexer.statemachine.StringLexStatemachine;
 import com.xiongyx.my.simple.json.util.JackSonUtil;
@@ -39,7 +40,7 @@ public class TestStringLexStatemachine {
             boolean jacksonParseResult = jacksonParse(finallyJson);
             boolean stringLexParseResult = stringLexParse(randomNumberStr);
             if(jacksonParseResult != stringLexParseResult){
-                throw new RuntimeException(
+                throw new MuJsonParserException(
                     String.format("parse result not match! randomNumberStr=%s,finallyJson=%s,jacksonParseResult=%s,stringLexParseResult=%s",
                         randomNumberStr,finallyJson,jacksonParseResult,stringLexParseResult));
             }else{
