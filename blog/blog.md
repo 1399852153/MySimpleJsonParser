@@ -8,9 +8,9 @@
 2. 作为学习编译原理的入门新手，用于练手的语言其词法和语法不能太复杂，否则无论是理解还是正确的实现解析器都会非常困难，而让人产生挫败感。而json的词法和语法足够简单，在语法分析时只需要简单判断下一个token即可确定AST生成的方向。
 3. json并不是一个真正的编程语言，其完全不需要后端的运行时，可以认为将json文本转换成正确的AST就算完成了任务。实现基于AST对原始的json文本进行beauty格式化输出的功能就能产生一定的成就感。
 #####
-在本篇博客中，我们将基于java语言，不依赖任何第三方库，从零开始实现一个简单的json解析器：MySimpleJsonParser。  其包括以下几个主要模块：  
-1. 一次性生成所有token的静态json词法分析器StaticJsonLexer
-2. 惰性按需解析token的流式json词法分析器StreamJsonLexer
+在本篇博客中，我们将基于java语言，不依赖任何第三方库，从零开始实现一个简单的json解析器：MySimpleJsonParser。其包括以下几个主要模块：    
+1. 一次性解析完出全部token的静态json词法分析器StaticJsonLexer
+2. 按需惰性解析token的流式json词法分析器StreamJsonLexer
 3. 基于递归实现的json语法解析器RecursiveJsonParser
 4. 基于堆栈实现的json语法解析器StackBaseJsonParser
 5. json的AST数据结构JsonElement及其子类，以及生成AST对应beauty json字符串的工具类
@@ -212,8 +212,50 @@ public abstract class AbstractJsonLexer {
 * 为了支持后续流式的词法分析器，静态的词法分析器StaticJsonLexer继承自AbstractJsonLexer类，构造方法中接收一个字符串，并通过方法doLex进行解析，返回一次性完整解析字符串后的token列表。  
 * doLex方法中是一个while循环，每一次循环开始都相当于是自动机位于状态0，在解析时会通过自增currentIndex不断地推进字符流，成功解析出完整的token后便会将新的token保存到上下文中的tokenCollector中。  
   只有在解析报错或者成功完成了整个字符串的解析后才会退出循环
-* 在正常退出while循环后，在token集合的尾部追加一个特殊的EOF类型的token，用于告知下一阶段的parser已经解析到了token流的末尾，该结束解析了。
+* 在正常退出while循环后，doLex方法返回前token集合的尾部会追加一个特殊的EOF类型的token，用于告知下一阶段的parser已经解析到了token流的末尾，该结束解析了。
 ### 2.3 number类型的词法分析
+number的词法规则比较复杂，因为number类型作为json中表示数字的组件，其可以是整数，也可以是小数、负数，同时还可以是带符号e/E的指数形式。  
+##### json number类型token的词法规则
+```
+number
+    integer fraction exponent
+
+integer
+    digit
+    onenine digits
+    '-' digit
+    '-' onenine digits
+
+digits
+    digit
+    digit digits
+
+digit
+    '0'
+    onenine
+
+onenine
+    '1' . '9'
+
+fraction
+    ""
+    '.' digits
+
+exponent
+    ""
+    'E' sign digits
+    'e' sign digits
+
+sign
+    ""
+    '+'
+    '-'
+```
+![json_number_lex_rule.png](img/json_number_lex_rule.png)
+#####
+基于上述词法规则，我们可以构造出如下图所示的用于解析number类型token的状态自动机。
+todo number类型解析的状态自动机示意图
+##### number类型解析
 
 
 ### 2.4 string类型的词法分析
