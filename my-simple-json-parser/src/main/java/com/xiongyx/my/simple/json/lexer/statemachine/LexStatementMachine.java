@@ -16,12 +16,16 @@ public abstract class LexStatementMachine {
     public String tryParse(char[] chars, DoLexContext doLexContext){
         doParse(chars,doLexContext);
 
-        boolean isFinalState = isFinalStateMap.get(currentState);
+        boolean isFinalState = currentStateIsFinal();
         if(isFinalState){
             return oneTokenAcceptResult.toString();
         }else{
-            throw new MuJsonParserException(String.format("currentState is not finalState! acceptResult=%s, acceptResult=%s",currentState, oneTokenAcceptResult));
+            throw new MuJsonParserException(String.format("currentState is not finalState! currentState=%s, acceptResult=%s",currentState, oneTokenAcceptResult));
         }
+    }
+
+    public boolean currentStateIsFinal(){
+        return isFinalStateMap.get(currentState);
     }
 
     protected static void accept(char currentChar, DoLexContext doLexContext, StringBuilder oneTokenAcceptResult){
@@ -43,7 +47,7 @@ public abstract class LexStatementMachine {
                 throw new MuJsonParserException(String.format("unknown state! currentState=%s",currentState));
             }
 
-            currentState = targetStateHandler.processInState(chars,doLexContext,oneTokenAcceptResult);
+            currentState = targetStateHandler.processInState(chars,doLexContext,this,oneTokenAcceptResult);
         }
     }
 

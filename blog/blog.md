@@ -254,10 +254,300 @@ sign
 ![json_number_lex_rule.png](img/json_number_lex_rule.png)
 #####
 基于上述词法规则，我们可以构造出如下图所示的用于解析number类型token的状态自动机。
-todo number类型解析的状态自动机示意图
-##### number类型解析
+##### number类型解析的状态自动机示意图
+![json_number_lex_state_machine.png](img/json_number_lex_state_machine.png)
+##### number类型解析代码实现
+```java
+public class NumberLexStatemachine extends LexStatementMachine{
 
+    private static final Map<Integer,Boolean> staticFinalStateMap;
+    private static final LexStateHandler[] lexStateHandlers;
 
+    static{
+        staticFinalStateMap = new HashMap<>();
+        staticFinalStateMap.put(-1,true);
+        staticFinalStateMap.put(1,true);
+        staticFinalStateMap.put(2,false);
+        staticFinalStateMap.put(3,true);
+        staticFinalStateMap.put(4,true);
+        staticFinalStateMap.put(5,false);
+        staticFinalStateMap.put(6,true);
+        staticFinalStateMap.put(7,false);
+        staticFinalStateMap.put(8,false);
+        staticFinalStateMap.put(9,true);
+
+        lexStateHandlers = new LexStateHandler[]{
+            new State0Handler(), new State1Handler(), new State2Handler(), new State3Handler(), new State4Handler(),
+            new State5Handler(),new State6Handler(),new State7Handler(),new State8Handler(),new State9Handler()
+        };
+    }
+
+    public NumberLexStatemachine() {
+        this.stateHandlers = lexStateHandlers;
+        this.isFinalStateMap = staticFinalStateMap;
+    }
+
+    private static abstract class NumberLexStateHandler implements LexStateHandler {
+
+        @Override
+        public int processInState(char[] chars, DoLexContext doLexContext, StringBuilder oneTokenAcceptResult) {
+            char currentChar = chars[doLexContext.currentIndex];
+
+            // whitespace符号以及number后合法的终结符
+            if(CommonStringUtil.isWhitespace(currentChar)
+                || currentChar == ']' || currentChar == '}' || currentChar == ',' || currentChar == ':'){
+                // 结束number的解析
+                return -1;
+            }
+
+            return doProcessInState(currentChar,doLexContext, oneTokenAcceptResult);
+        }
+
+        abstract int doProcessInState(char currentChar, DoLexContext doLexContext, StringBuilder oneTokenAcceptResult);
+    }
+
+    private static class State0Handler extends NumberLexStateHandler {
+        @Override
+        int doProcessInState(char currentChar, DoLexContext doLexContext, StringBuilder oneTokenAcceptResult) {
+            if(currentChar == '0'){
+                // accept
+                accept(currentChar,doLexContext,oneTokenAcceptResult);
+                // 进入状态1
+                return 1;
+            }
+
+            if(currentChar == '-'){
+                // accept
+                accept(currentChar,doLexContext,oneTokenAcceptResult);
+                // 进入状态2
+                return 2;
+            }
+
+            if(CommonStringUtil.is1_9(currentChar)){
+                // accept
+                accept(currentChar,doLexContext,oneTokenAcceptResult);
+                // 进入状态3
+                return 3;
+            }
+
+            throw new MuJsonParserException("unexpected char " + currentChar + " " + doLexContext.currentIndex);
+        }
+    }
+
+    private static class State1Handler extends NumberLexStateHandler {
+        @Override
+        int doProcessInState(char currentChar, DoLexContext doLexContext, StringBuilder oneTokenAcceptResult) {
+            if(currentChar == '.'){
+                accept(currentChar,doLexContext,oneTokenAcceptResult);
+                return 5;
+            }
+
+            if(currentChar == 'e' || currentChar == 'E'){
+                accept(currentChar,doLexContext, oneTokenAcceptResult);
+                return 7;
+            }
+
+            throw new MuJsonParserException("unexpected char '" + currentChar + "', index=" + doLexContext.currentIndex);
+        }
+    }
+
+    private static class State2Handler extends NumberLexStateHandler {
+        @Override
+        int doProcessInState(char currentChar, DoLexContext doLexContext, StringBuilder oneTokenAcceptResult) {
+            if(currentChar == '0'){
+                accept(currentChar,doLexContext,oneTokenAcceptResult);
+                return 1;
+            }
+
+            if(CommonStringUtil.is1_9(currentChar)){
+                accept(currentChar,doLexContext,oneTokenAcceptResult);
+                return 3;
+            }
+
+            throw new MuJsonParserException("unexpected char " + currentChar + " " + doLexContext.currentIndex);
+        }
+    }
+
+    private static class State3Handler extends NumberLexStateHandler {
+        @Override
+        int doProcessInState(char currentChar, DoLexContext doLexContext, StringBuilder oneTokenAcceptResult) {
+            if(currentChar == '.'){
+                accept(currentChar,doLexContext,oneTokenAcceptResult);
+                return 5;
+            }
+
+            if(currentChar == 'e' || currentChar == 'E'){
+                accept(currentChar,doLexContext,oneTokenAcceptResult);
+                return 7;
+            }
+
+            if(CommonStringUtil.is0_9(currentChar)){
+                accept(currentChar,doLexContext,oneTokenAcceptResult);
+                return 4;
+            }
+
+            throw new MuJsonParserException("unexpected char " + currentChar + " " + doLexContext.currentIndex);
+        }
+    }
+
+    private static class State4Handler extends NumberLexStateHandler {
+        @Override
+        int doProcessInState(char currentChar, DoLexContext doLexContext,StringBuilder oneTokenAcceptResult) {
+            if(currentChar == '.'){
+                accept(currentChar,doLexContext,oneTokenAcceptResult);
+                return 5;
+            }
+
+            if(currentChar == 'e' || currentChar == 'E'){
+                accept(currentChar,doLexContext,oneTokenAcceptResult);
+                return 7;
+            }
+
+            if(CommonStringUtil.is0_9(currentChar)){
+                accept(currentChar,doLexContext,oneTokenAcceptResult);
+                return 4;
+            }
+
+            throw new MuJsonParserException("unexpected char " + currentChar + " " + doLexContext.currentIndex);
+        }
+    }
+
+    private static class State5Handler extends NumberLexStateHandler {
+        @Override
+        int doProcessInState(char currentChar, DoLexContext doLexContext, StringBuilder oneTokenAcceptResult) {
+            if(CommonStringUtil.is0_9(currentChar)){
+                accept(currentChar,doLexContext,oneTokenAcceptResult);
+                return 6;
+            }
+
+            throw new MuJsonParserException("unexpected char " + currentChar + " " + doLexContext.currentIndex);
+        }
+    }
+
+    private static class State6Handler extends NumberLexStateHandler {
+        @Override
+        int doProcessInState(char currentChar, DoLexContext doLexContext,StringBuilder oneTokenAcceptResult) {
+            if(CommonStringUtil.is0_9(currentChar)){
+                accept(currentChar,doLexContext,oneTokenAcceptResult);
+                return 6;
+            }
+
+            if(currentChar == 'e' || currentChar == 'E'){
+                accept(currentChar,doLexContext,oneTokenAcceptResult);
+                return 7;
+            }
+
+            throw new MuJsonParserException("unexpected char " + currentChar + " " + doLexContext.currentIndex);
+        }
+    }
+
+    private static class State7Handler extends NumberLexStateHandler {
+        @Override
+        int doProcessInState(char currentChar, DoLexContext doLexContext,StringBuilder oneTokenAcceptResult) {
+            if(CommonStringUtil.is0_9(currentChar)){
+                accept(currentChar,doLexContext,oneTokenAcceptResult);
+                return 9;
+            }
+
+            if(currentChar == '-' || currentChar == '+'){
+                accept(currentChar,doLexContext,oneTokenAcceptResult);
+                return 8;
+            }
+
+            throw new MuJsonParserException("unexpected char " + currentChar + " " + doLexContext.currentIndex);
+        }
+    }
+
+    private static class State8Handler extends NumberLexStateHandler {
+        @Override
+        int doProcessInState(char currentChar, DoLexContext doLexContext, StringBuilder oneTokenAcceptResult) {
+            if(CommonStringUtil.is0_9(currentChar)){
+                accept(currentChar,doLexContext,oneTokenAcceptResult);
+                return 9;
+            }
+
+            throw new MuJsonParserException("unexpected char " + currentChar + " " + doLexContext.currentIndex);
+        }
+    }
+
+    private static class State9Handler extends NumberLexStateHandler {
+        @Override
+        int doProcessInState(char currentChar, DoLexContext doLexContext, StringBuilder oneTokenAcceptResult) {
+            if(CommonStringUtil.is0_9(currentChar)){
+                accept(currentChar,doLexContext,oneTokenAcceptResult);
+                return 9;
+            }
+
+            throw new MuJsonParserException("unexpected char " + currentChar + " " + doLexContext.currentIndex);
+        }
+    }
+}
+```
+```java
+package com.xiongyx.my.simple.json.lexer.statemachine;
+
+import com.xiongyx.my.simple.json.exception.MuJsonParserException;
+import com.xiongyx.my.simple.json.lexer.model.DoLexContext;
+
+import java.util.Map;
+
+public abstract class LexStatementMachine {
+
+    protected int currentState = 0;
+    protected StringBuilder oneTokenAcceptResult = new StringBuilder();
+
+    protected LexStateHandler[] stateHandlers;
+    protected Map<Integer,Boolean> isFinalStateMap;
+
+    public String tryParse(char[] chars, DoLexContext doLexContext){
+        doParse(chars,doLexContext);
+
+        boolean isFinalState = isFinalStateMap.get(currentState);
+        if(isFinalState){
+            return oneTokenAcceptResult.toString();
+        }else{
+            throw new MuJsonParserException(String.format("currentState is not finalState! acceptResult=%s, acceptResult=%s",currentState, oneTokenAcceptResult));
+        }
+    }
+
+    public boolean currentStateIsFinal(){
+        return isFinalStateMap.get(currentState);
+    }
+
+    protected static void accept(char currentChar, DoLexContext doLexContext, StringBuilder oneTokenAcceptResult){
+        oneTokenAcceptResult.append(currentChar);
+        doLexContext.currentIndex++;
+    }
+
+    private void doParse(char[] chars, DoLexContext doLexContext){
+        // 一进来是状态0
+        while(doLexContext.currentIndex < chars.length){
+            if(currentState == -1){
+                // 遇到了合法的分隔符号，退出token解析
+                return;
+            }
+
+            LexStateHandler targetStateHandler = stateHandlers[currentState];
+            if(currentState >= stateHandlers.length){
+                // 有bug
+                throw new MuJsonParserException(String.format("unknown state! currentState=%s",currentState));
+            }
+
+            currentState = targetStateHandler.processInState(chars,doLexContext,this,oneTokenAcceptResult);
+        }
+    }
+}
+```
+#####
+有了上述的状态自动机后，就可以按照图中的状态转移关系手写一个简单的状态机来解析number类型的token了。
+#####
+* NumberLexStatemachine继承自父类LexStatementMachine。在LexStatementMachine中与doLex方法类似，也是一个while循环来反复的处理每一次的状态跳转。
+* 子类NumberLexStatemachine定义了定义了一系列的LexStateHandler状态处理器，每一个状态处理器都对应状态机示意图中的一个状态。   
+* 每一个LexStateHandler中的功能都比较类似，即决定在当前状态下自己能够接收的字符类型，以及控制在合法接收字符流当前字符后应该跳转的下一个状态是什么。  
+  在合法接收字符时，会修改上下文中的当前字符指针以推进字符流，同时将接受到的当前合法字符追加到oneTokenAcceptResult中。
+* 如果遇到了合法的结束分隔符，比如whitespace或者“}”、“]”之类的字符，且当前状态是属于number解析的终态，则NumberLexStateHandler会返回-1，终止当前token的解析。(比如{"number":-123.0}结束时的状态是6，6是终态，所以其是合法的json串)  
+  如果状态处理器中遇到当前状态下不合法的字符，或者在退出解析时当前状态不属于number解析的终态，说明当前字符串不是合法的json串，则会直接抛出异常，退出词法解析。(比如{"number":-123.}结束时的状态是5,5不是终态，所以其是不合法的json串) 
+* NumberLexStatemachine状态机正常退出当前number类型token后，返回收集到的所有字符oneTokenAcceptResult，作为number类型的字面量返回。
 ### 2.4 string类型的词法分析
 
 ### 2.5 关键字的词法分析

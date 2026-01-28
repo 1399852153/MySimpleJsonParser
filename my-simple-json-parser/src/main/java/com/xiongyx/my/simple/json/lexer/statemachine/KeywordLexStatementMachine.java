@@ -54,7 +54,7 @@ public abstract class KeywordLexStatementMachine extends LexStatementMachine{
         }
 
         @Override
-        public int processInState(char[] chars, DoLexContext doLexContext, StringBuilder oneTokenAcceptResult) {
+        public int processInState(char[] chars, DoLexContext doLexContext, LexStatementMachine lexStatementMachine, StringBuilder oneTokenAcceptResult) {
             char currentChar = chars[doLexContext.currentIndex];
 
             return doProcessInState(currentChar,doLexContext,oneTokenAcceptResult);

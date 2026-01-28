@@ -30,6 +30,12 @@ public class TestNumberLexStatemachine {
         }
     }
 
+    public static void main(String[] args) {
+        String numberStr = "-1.}";
+        String s = new NumberLexStatemachine().tryParse(numberStr.toCharArray(),new DoLexContext());
+        System.out.println(s);
+    }
+
     private static boolean jacksonParse(String finallyJson){
         try {
             JackSonUtil.string2Obj(finallyJson,Object.class);

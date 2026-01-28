@@ -36,7 +36,7 @@ public class StringLexStatemachine extends LexStatementMachine{
     private static abstract class StringLexStateHandler implements LexStateHandler {
 
         @Override
-        public int processInState(char[] chars, DoLexContext doLexContext, StringBuilder oneTokenAcceptResult) {
+        public int processInState(char[] chars, DoLexContext doLexContext, LexStatementMachine lexStatementMachine, StringBuilder oneTokenAcceptResult) {
             char currentChar = chars[doLexContext.currentIndex];
 
             return doProcessInState(currentChar,doLexContext,oneTokenAcceptResult);
@@ -173,7 +173,7 @@ public class StringLexStatemachine extends LexStatementMachine{
     public static void main(String[] args) {
         StringLexStatemachine statemachine = new StringLexStatemachine();
 
-        String s = "\"\\'单引号\\' \\/斜杠\"";
+        String s = "\"abc,3211\"}321";
         System.out.println(s);
         String result = statemachine.tryParse(s.toCharArray(),new DoLexContext());
         System.out.println(result);

@@ -39,14 +39,19 @@ public class NumberLexStatemachine extends LexStatementMachine{
     private static abstract class NumberLexStateHandler implements LexStateHandler {
 
         @Override
-        public int processInState(char[] chars, DoLexContext doLexContext, StringBuilder oneTokenAcceptResult) {
+        public int processInState(char[] chars, DoLexContext doLexContext, LexStatementMachine lexStatementMachine, StringBuilder oneTokenAcceptResult) {
             char currentChar = chars[doLexContext.currentIndex];
 
             // whitespace符号以及number后合法的终结符
             if(CommonStringUtil.isWhitespace(currentChar)
                 || currentChar == ']' || currentChar == '}' || currentChar == ',' || currentChar == ':'){
-                // 结束number的解析
-                return -1;
+                if(lexStatementMachine.currentStateIsFinal()){
+                    // 结束number的解析
+                    return -1;
+                }else{
+                    // 遇到了分隔符，但是当前number解析的状态不是终态，无法转换为一个合法的number类型的token，抛异常
+                    throw new MuJsonParserException("unexpected char " + currentChar + " " + doLexContext.currentIndex);
+                }
             }
 
             return doProcessInState(currentChar,doLexContext, oneTokenAcceptResult);
