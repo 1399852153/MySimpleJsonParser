@@ -91,14 +91,7 @@ public class StringLexStatemachine extends LexStatementMachine{
     private static class State2Handler extends StringLexStateHandler {
         @Override
         int doProcessInState(char currentChar, DoLexContext doLexContext, StringBuilder oneTokenAcceptResult) {
-//            if(CommonStringUtil.isWhitespace(currentChar)
-//                || currentChar == ']' || currentChar == '}' || currentChar == ',' || currentChar == ':'){
-//                // 合法的，但是不accept，直接返回
-//                return -1;
-//            }
-//
-//            throw new MuJsonParserException("after a string parse，unexpected char " + currentChar + " " + doLexContext.currentIndex);
-
+            // 终态，完成一个string的解析，直接退出
             return -1;
         }
     }
