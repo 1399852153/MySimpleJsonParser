@@ -256,7 +256,9 @@ sign
 基于上述词法规则，我们可以构造出如下图所示的用于解析number类型token的状态自动机。
 ##### number类型解析的状态自动机示意图
 ![json_number_lex_state_machine.png](img/json_number_lex_state_machine.png)
-##### number类型解析代码实现
+#####
+设计好上述的状态自动机后，就可以按照图中的状态转移关系手写一个简单的状态机来解析number类型的token了。
+##### number类型解析状态机实现源码
 ```java
 public class NumberLexStatemachine extends LexStatementMachine{
 
@@ -290,14 +292,19 @@ public class NumberLexStatemachine extends LexStatementMachine{
     private static abstract class NumberLexStateHandler implements LexStateHandler {
 
         @Override
-        public int processInState(char[] chars, DoLexContext doLexContext, StringBuilder oneTokenAcceptResult) {
+        public int processInState(char[] chars, DoLexContext doLexContext, LexStatementMachine lexStatementMachine, StringBuilder oneTokenAcceptResult) {
             char currentChar = chars[doLexContext.currentIndex];
 
             // whitespace符号以及number后合法的终结符
             if(CommonStringUtil.isWhitespace(currentChar)
                 || currentChar == ']' || currentChar == '}' || currentChar == ',' || currentChar == ':'){
-                // 结束number的解析
-                return -1;
+                if(lexStatementMachine.currentStateIsFinal()){
+                    // 结束number的解析
+                    return -1;
+                }else{
+                    // 遇到了分隔符，但是当前number解析的状态不是终态，无法转换为一个合法的number类型的token，抛异常
+                    throw new MuJsonParserException("unexpected char " + currentChar + " " + doLexContext.currentIndex);
+                }
             }
 
             return doProcessInState(currentChar,doLexContext, oneTokenAcceptResult);
@@ -482,15 +489,9 @@ public class NumberLexStatemachine extends LexStatementMachine{
         }
     }
 }
+
 ```
 ```java
-package com.xiongyx.my.simple.json.lexer.statemachine;
-
-import com.xiongyx.my.simple.json.exception.MuJsonParserException;
-import com.xiongyx.my.simple.json.lexer.model.DoLexContext;
-
-import java.util.Map;
-
 public abstract class LexStatementMachine {
 
     protected int currentState = 0;
@@ -538,8 +539,37 @@ public abstract class LexStatementMachine {
     }
 }
 ```
-#####
-有了上述的状态自动机后，就可以按照图中的状态转移关系手写一个简单的状态机来解析number类型的token了。
+```java
+public class CommonStringUtil {
+    public static boolean is1_9(char ch){
+        return ch >= '1' && ch <= '9';
+    }
+
+    public static boolean is0_9(char ch){
+        return ch >= '0' && ch <= '9';
+    }
+
+    public static boolean isWhitespace(char ch){
+        return ch == ' ' || ch == '\t' || ch == '\r' || ch == '\n';
+    }
+
+    public static boolean isHex(char ch){
+        if(is0_9(ch)){
+            return true;
+        }
+
+        if(ch >= 'a' && ch <= 'f'){
+            return true;
+        }
+
+        if(ch >= 'A' && ch <= 'F'){
+            return true;
+        }
+
+        return false;
+    }
+}
+```
 #####
 * NumberLexStatemachine继承自父类LexStatementMachine。在LexStatementMachine中与doLex方法类似，也是一个while循环来反复的处理每一次的状态跳转。
 * 子类NumberLexStatemachine定义了定义了一系列的LexStateHandler状态处理器，每一个状态处理器都对应状态机示意图中的一个状态。   
@@ -549,7 +579,215 @@ public abstract class LexStatementMachine {
   如果状态处理器中遇到当前状态下不合法的字符，或者在退出解析时当前状态不属于number解析的终态，说明当前字符串不是合法的json串，则会直接抛出异常，退出词法解析。(比如{"number":-123.}结束时的状态是5,5不是终态，所以其是不合法的json串) 
 * NumberLexStatemachine状态机正常退出当前number类型token后，返回收集到的所有字符oneTokenAcceptResult，作为number类型的字面量返回。
 ### 2.4 string类型的词法分析
+string类型的词法规则相比之下比较简单，要求以双引号开头，并以双引号结尾即可，但需要额外处理转义字符相关的逻辑。  
+##### json string类型token的词法规则
+```
+string
+    '"' characters '"'
 
+characters
+    ""
+    character characters
+
+character
+    '0020' . '10FFFF' - '"' - '\'
+    '\' escape
+
+escape
+    '"'
+    '\'
+    '/'
+    'b'
+    'f'
+    'n'
+    'r'
+    't'
+    'u' hex hex hex hex
+
+hex
+    digit
+    'A' . 'F'
+    'a' . 'f'
+```
+![json_string_lex_rule.png](img/json_string_lex_rule.png)
+#####
+基于上述词法规则，我们构造出如下图所示的用于解析string类型token的状态自动机。
+##### string类型解析的状态自动机示意图
+![json_string_lex_state_machine.png](img/json_string_lex_state_machine.png)
+##### string类型解析状态机实现源码
+```java
+public class StringLexStatemachine extends LexStatementMachine{
+
+    private static final Map<Integer,Boolean> staticFinalStateMap;
+    private static final LexStateHandler[] lexStateHandlers;
+
+    static{
+        staticFinalStateMap = new HashMap<>();
+        staticFinalStateMap.put(-1,true);
+        staticFinalStateMap.put(1,false);
+        staticFinalStateMap.put(2,true);
+        staticFinalStateMap.put(3,false);
+        staticFinalStateMap.put(4,false);
+        staticFinalStateMap.put(5,false);
+        staticFinalStateMap.put(6,false);
+        staticFinalStateMap.put(7,false);
+
+        lexStateHandlers = new LexStateHandler[]{
+            new State0Handler(),new State1Handler(),new State2Handler(),new State3Handler(),new State4Handler(),
+            new State5Handler(),new State6Handler(),new State7Handler()};
+    }
+
+    public StringLexStatemachine() {
+        this.stateHandlers = lexStateHandlers;
+        this.isFinalStateMap = staticFinalStateMap;
+    }
+
+    private static abstract class StringLexStateHandler implements LexStateHandler {
+
+        @Override
+        public int processInState(char[] chars, DoLexContext doLexContext, LexStatementMachine lexStatementMachine, StringBuilder oneTokenAcceptResult) {
+            char currentChar = chars[doLexContext.currentIndex];
+
+            return doProcessInState(currentChar,doLexContext,oneTokenAcceptResult);
+        }
+
+        abstract int doProcessInState(char currentChar, DoLexContext doLexContext, StringBuilder oneTokenAcceptResult);
+    }
+
+    private static class State0Handler extends StringLexStateHandler {
+        @Override
+        int doProcessInState(char currentChar, DoLexContext doLexContext, StringBuilder oneTokenAcceptResult) {
+            if(currentChar == '"'){
+                // accept
+                accept(currentChar,doLexContext,oneTokenAcceptResult);
+                // 进入状态1
+                return 1;
+            }
+
+            throw new MuJsonParserException("unexpected char " + currentChar + " " + doLexContext.currentIndex);
+        }
+    }
+
+    private static class State1Handler extends StringLexStateHandler {
+        @Override
+        int doProcessInState(char currentChar, DoLexContext doLexContext, StringBuilder oneTokenAcceptResult) {
+            if(currentChar == '"'){
+                // accept
+                accept(currentChar,doLexContext,oneTokenAcceptResult);
+                // 进入状态2
+                return 2;
+            }
+
+            if(currentChar == '\\'){
+                // accept
+                accept(currentChar,doLexContext,oneTokenAcceptResult);
+                // 进入状态3
+                return 3;
+            }
+
+            // 控制字符是不合法的，不能出现在string中
+            if (currentChar < 0x20) {
+                throw new MuJsonParserException("unexpected control char " + currentChar + " in string, " + doLexContext.currentIndex);
+            }
+
+            // 除了["]和[\]两个字符，别的都当做字符串的一部分接收
+            // accept
+            accept(currentChar,doLexContext,oneTokenAcceptResult);
+            return 1;
+        }
+    }
+
+    private static class State2Handler extends StringLexStateHandler {
+        @Override
+        int doProcessInState(char currentChar, DoLexContext doLexContext, StringBuilder oneTokenAcceptResult) {
+            if(CommonStringUtil.isWhitespace(currentChar)
+                || currentChar == ']' || currentChar == '}' || currentChar == ',' || currentChar == ':'){
+                // 合法的，但是不accept，直接返回
+                return -1;
+            }
+
+            throw new MuJsonParserException("after a string parse，unexpected char " + currentChar + " " + doLexContext.currentIndex);
+        }
+    }
+
+    private static class State3Handler extends StringLexStateHandler {
+        @Override
+        int doProcessInState(char currentChar, DoLexContext doLexContext, StringBuilder oneTokenAcceptResult) {
+            // 合法的转义字符
+            if(currentChar == '"' || currentChar == '\\' || currentChar == '/' ||
+                currentChar == 'b' || currentChar == 'f' || currentChar == 'n' ||
+                currentChar == 'r' || currentChar == 't'){
+                // 接收，回到状态1
+                accept(currentChar,doLexContext,oneTokenAcceptResult);
+                return 1;
+            }
+
+            if(currentChar == 'u'){
+                // 特殊case 要求后面连续4个hex字符 '\\u hex hex hex hex'
+                accept(currentChar,doLexContext,oneTokenAcceptResult);
+                return 4;
+            }
+
+            throw new MuJsonParserException("unexpected char " + currentChar + " " + doLexContext.currentIndex);
+        }
+    }
+
+    private static class State4Handler extends StringLexStateHandler {
+        @Override
+        int doProcessInState(char currentChar, DoLexContext doLexContext, StringBuilder oneTokenAcceptResult) {
+            if(CommonStringUtil.isHex(currentChar)){
+                // 接收，进入状态5
+                accept(currentChar,doLexContext,oneTokenAcceptResult);
+                return 5;
+            }
+
+            throw new MuJsonParserException("unexpected char " + currentChar + " " + doLexContext.currentIndex);
+        }
+    }
+
+    private static class State5Handler extends StringLexStateHandler {
+        @Override
+        int doProcessInState(char currentChar, DoLexContext doLexContext, StringBuilder oneTokenAcceptResult) {
+            if(CommonStringUtil.isHex(currentChar)){
+                // 接收，进入状态6
+                accept(currentChar,doLexContext,oneTokenAcceptResult);
+                return 6;
+            }
+
+            throw new MuJsonParserException("unexpected char " + currentChar + " " + doLexContext.currentIndex);
+        }
+    }
+
+    private static class State6Handler extends StringLexStateHandler {
+        @Override
+        int doProcessInState(char currentChar, DoLexContext doLexContext, StringBuilder oneTokenAcceptResult) {
+            if(CommonStringUtil.isHex(currentChar)){
+                // 接收，进入状态7
+                accept(currentChar,doLexContext,oneTokenAcceptResult);
+                return 7;
+            }
+
+            throw new MuJsonParserException("unexpected char " + currentChar + " " + doLexContext.currentIndex);
+        }
+    }
+
+    private static class State7Handler extends StringLexStateHandler {
+        @Override
+        int doProcessInState(char currentChar, DoLexContext doLexContext, StringBuilder oneTokenAcceptResult) {
+            if(CommonStringUtil.isHex(currentChar)){
+                // 连续接收了4个hex字符，回到状态1
+                accept(currentChar,doLexContext,oneTokenAcceptResult);
+                return 1;
+            }
+
+            throw new MuJsonParserException("unexpected char " + currentChar + " " + doLexContext.currentIndex);
+        }
+    }
+}
+```
+#####
+* string类型token解析的状态机与number类型的工作模式类似，同样继承自LexStatementMachine，并且定义了一系列的对应状态机示意图中各个状态的LexStateHandler。  
+* 
 ### 2.5 关键字的词法分析
 
 

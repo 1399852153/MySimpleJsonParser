@@ -66,7 +66,7 @@ public class StringLexStatemachine extends LexStatementMachine{
                 // accept
                 accept(currentChar,doLexContext,oneTokenAcceptResult);
                 // 进入状态2
-                return 2;
+                return -1;
             }
 
             if(currentChar == '\\'){
@@ -74,6 +74,11 @@ public class StringLexStatemachine extends LexStatementMachine{
                 accept(currentChar,doLexContext,oneTokenAcceptResult);
                 // 进入状态3
                 return 3;
+            }
+
+            // 控制字符是不合法的，不能出现在string中
+            if (currentChar < 0x20) {
+                throw new MuJsonParserException("unexpected control char " + currentChar + " in string, " + doLexContext.currentIndex);
             }
 
             // 除了["]和[\]两个字符，别的都当做字符串的一部分接收
@@ -86,13 +91,15 @@ public class StringLexStatemachine extends LexStatementMachine{
     private static class State2Handler extends StringLexStateHandler {
         @Override
         int doProcessInState(char currentChar, DoLexContext doLexContext, StringBuilder oneTokenAcceptResult) {
-            if(CommonStringUtil.isWhitespace(currentChar)
-                || currentChar == ']' || currentChar == '}' || currentChar == ',' || currentChar == ':'){
-                // 合法的，但是不accept，直接返回
-                return -1;
-            }
+//            if(CommonStringUtil.isWhitespace(currentChar)
+//                || currentChar == ']' || currentChar == '}' || currentChar == ',' || currentChar == ':'){
+//                // 合法的，但是不accept，直接返回
+//                return -1;
+//            }
+//
+//            throw new MuJsonParserException("after a string parse，unexpected char " + currentChar + " " + doLexContext.currentIndex);
 
-            throw new MuJsonParserException("after a string parse，unexpected char " + currentChar + " " + doLexContext.currentIndex);
+            return -1;
         }
     }
 

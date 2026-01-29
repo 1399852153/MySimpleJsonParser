@@ -32,7 +32,7 @@ public class TestStringLexStatemachine {
 
     @Test
     public void testStringLexStatemachine(){
-        for(int i=0; i<200000; i++) {
+        for(int i=0; i<500000; i++) {
             String randomNumberStr = generateRandomString((int)(Math.random()*50));
             String jsonTemplate = "{\"string\":%s}";
             String finallyJson = String.format(jsonTemplate, randomNumberStr);
