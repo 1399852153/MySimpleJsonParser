@@ -4,6 +4,9 @@ import com.xiongyx.my.simple.json.lexer.enums.JsonTokenTypeEnum;
 
 import java.util.Map;
 
+/**
+ * 解析关键字null的状态自动机
+ * */
 public class KeywordNullLexStatementMachine extends KeywordLexStatementMachine{
 
     private static final String KEYWORD = JsonTokenTypeEnum.NULL.getKey();

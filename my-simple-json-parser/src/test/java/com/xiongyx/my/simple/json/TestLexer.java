@@ -29,5 +29,12 @@ public class TestLexer {
         }
     }
 
+    public static void main(String[] args) {
+        String json = "{\"k1\":{\"abc\":123},\"k2\":true}";
 
+        StaticJsonLexer staticJsonLexer = new StaticJsonLexer(json);
+        List<JsonToken> jsonTokenList = staticJsonLexer.doLex();
+        System.out.println("json=" + json);
+        jsonTokenList.forEach(System.out::println);
+    }
 }

@@ -4,8 +4,8 @@
 最近正在学习编译原理相关的知识，为了加深对词法分析、语法分析阶段中诸如有穷自动机、自顶向下语法分析、AST等概念的理解，所以选择了json解析器作为练手的对象。  
 #####
 通过实现json解析器来学习编译原理前端知识有以下几个优点：
-1. json作为一种轻量级的数据交换格式，在日常的工作天天都会接触到，对json的语法非常熟悉，没有额外的学习成本 
-2. 作为学习编译原理的入门新手，用于练手的语言其词法和语法不能太复杂，否则无论是理解还是正确的实现解析器都会非常困难，而让人产生挫败感。而json的词法和语法足够简单，在语法分析时只需要简单判断下一个token即可确定AST生成的方向。
+1. json作为一种轻量级的数据交换格式，在日常的工作可以说每天都会接触，几乎没有什么额外的学习成本。
+2. 作为学习编译原理的入门新手，用于练手的语言其词法和语法不能太复杂，否则无论是理解还是正确实现编译器/解释器都会很困难，让人产生挫败感。而json的词法和语法足够简单，在语法分析时只需要简单判断下一个token即可确定AST生成的方向。
 3. json并不是一个真正的编程语言，其完全不需要后端的运行时，可以认为将json文本转换成正确的AST就算完成了任务。实现基于AST对原始的json文本进行beauty格式化输出的功能就能产生一定的成就感。
 #####
 在本篇博客中，我们将基于java语言，不依赖任何第三方库，从零开始实现一个简单的json解析器：MySimpleJsonParser。其包括以下几个主要模块：    
@@ -782,14 +782,176 @@ public class StringLexStatemachine extends LexStatementMachine{
 ```
 #####
 * string类型token解析的状态机与number类型的工作模式类似，同样继承自LexStatementMachine，并且定义了一系列的对应状态机示意图中各个状态的LexStateHandler。  
-* 
 ### 2.5 关键字的词法分析
+最后，json的词法分析中还有关键字类型的token解析需要实现。所幸json的文法非常简单，只有true、false和null三个关键字，且这三个关键字的f(1)都不相同，也与其它类型的token的f(1)不相同。  
+因此，在词法解析时，我们可以很简单的根据第一个字符来决定要解析的关键字类型，在状态0时，如果碰到字符t就尝试解析true类型的token；碰到字符f就尝试解析false类型的token；碰到字符n就尝试解析null类型的token。  
+因此我们可以很简单的得到如下图所示的三个关键字的状态自动机。  
+##### 关键字类型解析的状态自动机示意图
+![json_keyword_lex_state_machine.png](img/json_keyword_lex_state_machine.png)
+##### keyword类型解析状态机实现源码
+```java
+public abstract class KeywordLexStatementMachine extends LexStatementMachine{
 
+    protected final String keyword;
 
+    public KeywordLexStatementMachine(String keyword) {
+        this.keyword = keyword;
+    }
 
+    protected static Map<Integer,Boolean> buildIsFinalStateMap(String keyword){
+        Map<Integer,Boolean> isFinalStateMap = new HashMap<>(keyword.length() + 1);
+        isFinalStateMap.put(-1,true);
 
+        for(int i=0; i<keyword.length(); i++) {
+            isFinalStateMap.put(i,false);
+        }
+
+        // 最后一个字符就是合理的终态
+        isFinalStateMap.put(keyword.length(),true);
+
+        return isFinalStateMap;
+    }
+
+    protected static LexStateHandler[] buildLexStateHandlers(String keyword){
+        LexStateHandler[] lexStateHandlers = new LexStateHandler[keyword.length() + 1];
+
+        for(int i=0; i<keyword.length(); i++) {
+            char c = keyword.charAt(i);
+
+            lexStateHandlers[i] = new KeywordLexStateHandler(c,i+1);
+        }
+
+        // 最后一个状态，直接返回
+        lexStateHandlers[keyword.length()] = new KeywordLexStateHandler(' ',-1);
+
+        return lexStateHandlers;
+    }
+
+    private static class KeywordLexStateHandler implements LexStateHandler {
+
+        private final char targetCh;
+        private final int nextState;
+
+        public KeywordLexStateHandler(char targetCh, int nextState) {
+            this.targetCh = targetCh;
+            this.nextState = nextState;
+        }
+
+        @Override
+        public int processInState(char[] chars, DoLexContext doLexContext, LexStatementMachine lexStatementMachine, StringBuilder oneTokenAcceptResult) {
+            char currentChar = chars[doLexContext.currentIndex];
+
+            return doProcessInState(currentChar,doLexContext,oneTokenAcceptResult);
+        }
+
+        private int doProcessInState(char currentChar, DoLexContext doLexContext, StringBuilder oneTokenAcceptResult){
+            if(nextState == -1){
+                // -1是特殊的直接返回
+                return nextState;
+            }
+
+            if(currentChar == targetCh) {
+                // 接收，进入下一个状态
+                accept(currentChar,doLexContext,oneTokenAcceptResult);
+                return nextState;
+            }
+
+            throw new MuJsonParserException("unexpected char " + currentChar + " " + doLexContext.currentIndex);
+        }
+    }
+}
+```
+```java
+/**
+ * 解析关键字true的状态自动机
+ * */
+public class KeywordTrueLexStatementMachine extends KeywordLexStatementMachine{
+
+    private static final String KEYWORD = JsonTokenTypeEnum.TRUE.getKey();
+    private static final Map<Integer,Boolean> staticIsFinalStateMap;
+    private static final LexStateHandler[] lexStateHandlers;
+
+    static {
+        staticIsFinalStateMap = buildIsFinalStateMap(KEYWORD);
+        lexStateHandlers = buildLexStateHandlers(KEYWORD);
+    }
+
+    public KeywordTrueLexStatementMachine() {
+        super(KEYWORD);
+
+        super.isFinalStateMap = staticIsFinalStateMap;
+        super.stateHandlers = lexStateHandlers;
+    }
+}
+```
+```java
+/**
+ * 解析关键字false的状态自动机
+ * */
+public class KeywordFalseLexStatementMachine extends KeywordLexStatementMachine{
+
+    private static final String KEYWORD = JsonTokenTypeEnum.FALSE.getKey();
+    private static final Map<Integer,Boolean> staticIsFinalStateMap;
+    private static final LexStateHandler[] lexStateHandlers;
+
+    static {
+        staticIsFinalStateMap = buildIsFinalStateMap(KEYWORD);
+        lexStateHandlers = buildLexStateHandlers(KEYWORD);
+    }
+
+    public KeywordFalseLexStatementMachine() {
+        super(KEYWORD);
+
+        super.isFinalStateMap = staticIsFinalStateMap;
+        super.stateHandlers = lexStateHandlers;
+    }
+}
+```
+```java
+/**
+ * 解析关键字null的状态自动机
+ * */
+public class KeywordNullLexStatementMachine extends KeywordLexStatementMachine{
+
+    private static final String KEYWORD = JsonTokenTypeEnum.NULL.getKey();
+    private static final Map<Integer,Boolean> staticIsFinalStateMap;
+    private static final LexStateHandler[] lexStateHandlers;
+
+    static {
+        staticIsFinalStateMap = buildIsFinalStateMap(KEYWORD);
+        lexStateHandlers = buildLexStateHandlers(KEYWORD);
+    }
+
+    public KeywordNullLexStatementMachine() {
+        super(KEYWORD);
+
+        super.isFinalStateMap = staticIsFinalStateMap;
+        super.stateHandlers = lexStateHandlers;
+    }
+}
+```
+#####
+* 由于关键字的解析都是最简单的单向状态转移，所以单独抽象出了KeywordLexStatementMachine类，其根据构造方法中传入的关键字字面量，自动生成对应数量的LexStateHandler集合和IsFinalStateMap。
+#####
+至此，我们就已经实现了基本的json词法分析能力，能够将json字符串一次性的解析成token列表供下一阶段的语法分析使用。  
+```java
+    public static void main(String[] args) {
+        String json = "{\"k1\":{\"abc\":123},\"k2\":true}";
+
+        StaticJsonLexer staticJsonLexer = new StaticJsonLexer(json);
+        List<JsonToken> jsonTokenList = staticJsonLexer.doLex();
+        System.out.println("json=" + json);
+        jsonTokenList.forEach(System.out::println);
+    }
+```
+![static_json_lexer_demo_result.png](img/static_json_lexer_demo_result.png)
 ## 3. json语法分析实现
+
 
 ## 4. 基于AST生成beauty json字符串
 
-## 5. 总结
+## 5. 流式的json解析
+
+## 6. 基于堆栈实现的json语法解析
+
+## 总结

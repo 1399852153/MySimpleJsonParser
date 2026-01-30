@@ -4,6 +4,9 @@ import com.xiongyx.my.simple.json.lexer.enums.JsonTokenTypeEnum;
 
 import java.util.Map;
 
+/**
+ * 解析关键字false的状态自动机
+ * */
 public class KeywordFalseLexStatementMachine extends KeywordLexStatementMachine{
 
     private static final String KEYWORD = JsonTokenTypeEnum.FALSE.getKey();

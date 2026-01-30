@@ -49,6 +49,8 @@ public abstract class LexStatementMachine {
 
             currentState = targetStateHandler.processInState(chars,doLexContext,this,oneTokenAcceptResult);
         }
+
+        // 也可能是解析到末尾了，判断是否是合法的终态
     }
 
     public static void main(String[] args) {
