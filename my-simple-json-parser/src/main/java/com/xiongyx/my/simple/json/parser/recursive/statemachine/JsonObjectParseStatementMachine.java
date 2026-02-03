@@ -10,6 +10,9 @@ import com.xiongyx.my.simple.json.parser.reader.JsonTokenReader;
 import com.xiongyx.my.simple.json.parser.recursive.RecursiveDoParserContext;
 import com.xiongyx.my.simple.json.util.Assert;
 
+/**
+ * 基于递归实现的 object类型语法解析状态自动机
+ * */
 public class JsonObjectParseStatementMachine extends AbstractJsonParseStatementMachine<JsonObject>{
 
     public JsonObjectParseStatementMachine(JsonTokenReader jsonTokenReader) {

@@ -1,5 +1,8 @@
 package com.xiongyx.my.simple.json.parser.model;
 
+/**
+ * json AST的primitive类型节点
+ * */
 public class JsonPrimitiveStr extends JsonElement{
 
     /**

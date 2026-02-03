@@ -3,6 +3,9 @@ package com.xiongyx.my.simple.json.parser.model;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+/**
+ * json AST的object类型节点
+ * */
 public class JsonObject extends JsonElement{
 
     private final Map<String,JsonElement> objMap = new LinkedHashMap<>();

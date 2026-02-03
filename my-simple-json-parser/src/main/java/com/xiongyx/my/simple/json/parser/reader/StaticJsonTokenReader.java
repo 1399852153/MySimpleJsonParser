@@ -40,6 +40,4 @@ public class StaticJsonTokenReader implements JsonTokenReader {
     public int currentIndex() {
         return this.currentIndex;
     }
-
-
 }

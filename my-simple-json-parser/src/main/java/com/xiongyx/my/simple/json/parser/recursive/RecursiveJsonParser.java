@@ -11,7 +11,7 @@ import com.xiongyx.my.simple.json.parser.recursive.statemachine.JsonArrayParseSt
 import com.xiongyx.my.simple.json.parser.recursive.statemachine.JsonObjectParseStatementMachine;
 
 /**
- * 基于递归的json解析器
+ * 基于递归实现的json解析器
  * */
 public class RecursiveJsonParser extends JsonParser {
 

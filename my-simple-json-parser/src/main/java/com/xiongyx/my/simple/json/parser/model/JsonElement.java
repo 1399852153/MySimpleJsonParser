@@ -3,6 +3,7 @@ package com.xiongyx.my.simple.json.parser.model;
 import java.util.List;
 import java.util.Map;
 
+
 public abstract class JsonElement {
 
     /**
