@@ -102,7 +102,7 @@ public class JsonObjectParseStatementMachine extends AbstractJsonParseStatementM
                 JsonObject subJsonObject = jsonObjectParseStatementMachine.parseJsonElement();
 
                 // 构造好了一个kv对（key : obj）
-                recursiveDoParserContext.getTargetJsonElement().putKey(keyToken.getContent(), subJsonObject);
+                recursiveDoParserContext.getTargetJsonElement().putKV(keyToken.getContent(), subJsonObject);
 
                 return 5;
             }
@@ -114,7 +114,7 @@ public class JsonObjectParseStatementMachine extends AbstractJsonParseStatementM
 
                 JsonArray jsonArray = jsonArrayParseStatementMachine.parseJsonElement();
                 // 构造好了一个kv对 (key ：array)
-                recursiveDoParserContext.getTargetJsonElement().putKey(keyToken.getContent(), jsonArray);
+                recursiveDoParserContext.getTargetJsonElement().putKV(keyToken.getContent(), jsonArray);
 
                 return 5;
             }
@@ -122,7 +122,7 @@ public class JsonObjectParseStatementMachine extends AbstractJsonParseStatementM
             // 基础类型的value
             if(token.getType().isPrimitiveValue()){
                 accept(jsonTokenReader);
-                recursiveDoParserContext.getTargetJsonElement().putKey(keyToken.getContent(), new JsonPrimitiveStr(token.getContent()));
+                recursiveDoParserContext.getTargetJsonElement().putKV(keyToken.getContent(), new JsonPrimitiveStr(token.getContent()));
 
                 return 5;
             }

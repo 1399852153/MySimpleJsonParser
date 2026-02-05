@@ -6,7 +6,7 @@ import com.xiongyx.my.simple.json.lexer.model.JsonToken;
 
 public class StreamJsonTokenReader implements JsonTokenReader {
 
-    private final int currentIndex;
+    private int currentIndex;
     private final StreamJsonLexer streamJsonLexer;
 
     private JsonToken peekToken;
@@ -30,6 +30,7 @@ public class StreamJsonTokenReader implements JsonTokenReader {
             hasNextToken = false;
         }
 
+        currentIndex++;
         return nextToken;
     }
 

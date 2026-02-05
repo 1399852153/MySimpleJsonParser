@@ -1,4 +1,4 @@
-# 从零开始实现一个简单的json解析器
+# 从零开始实现一个简易json解析器
 
 ## 1. MySimpleJsonParser介绍
 最近正在学习编译原理相关的知识，为了加深对词法分析、语法分析阶段中诸如有穷自动机、自顶向下语法分析、AST等概念的理解，所以选择了json解析器作为练手的对象。  
@@ -528,12 +528,12 @@ public abstract class LexStatementMachine {
                 return;
             }
 
-            LexStateHandler targetStateHandler = stateHandlers[currentState];
             if(currentState >= stateHandlers.length){
                 // 有bug
                 throw new MuJsonParserException(String.format("unknown state! currentState=%s",currentState));
             }
-
+            LexStateHandler targetStateHandler = stateHandlers[currentState];
+            
             currentState = targetStateHandler.processInState(chars,doLexContext,this,oneTokenAcceptResult);
         }
     }
@@ -1144,7 +1144,7 @@ public enum JsonTokenTypeEnum {
 ```
 
 ### json object对象结构解析
-现在我们来研究json object对象的语法解析。object结构是以“{”开头，“}”结尾的结构，内部可以有0到N个kv键值对，其中key必须是string类型，而value则可以是嵌套的结构。  
+现在我们来研究json object对象的语法解析。object结构是以“{”开头，“}”结尾的结构，内部可以有0到N个kv键值对，其中key必须是string类型，而value则可以是嵌套的结构，key和value之间以冒号分隔，kv对之间以逗号分割。  
 因此，使用递归的方式来实现object对象的语法解析是很容易理解和实现的(尽管递归的实现效率不够高)。  
 ##### json object对象结构语法
 ```
@@ -1173,8 +1173,9 @@ value
 ```
 ![json_object_parser.png](img/json_object_parser.png)
 ##### object结构解析状态自动机示意图
-
+![json_object_state_machine.png](img/json_object_state_machine.png)
 ##### object结构解析状态自动机递归实现
+语法分析与词法分析类似，也是使用状态自动机来实现的。实现的大致方式也是通过抽象出一个父类(AbstractJsonParseStatementMachine),在父类中通过持续不断的从token流中读取token来推进状态。在子类中定义相应的状态处理器来实现每个状态的处理
 ```java
 /**
  * 基于递归实现的 object类型语法解析状态自动机
@@ -1268,7 +1269,7 @@ public class JsonObjectParseStatementMachine extends AbstractJsonParseStatementM
                 JsonObject subJsonObject = jsonObjectParseStatementMachine.parseJsonElement();
 
                 // 构造好了一个kv对（key : obj）
-                recursiveDoParserContext.getTargetJsonElement().putKey(keyToken.getContent(), subJsonObject);
+                recursiveDoParserContext.getTargetJsonElement().putKV(keyToken.getContent(), subJsonObject);
 
                 return 5;
             }
@@ -1280,7 +1281,7 @@ public class JsonObjectParseStatementMachine extends AbstractJsonParseStatementM
 
                 JsonArray jsonArray = jsonArrayParseStatementMachine.parseJsonElement();
                 // 构造好了一个kv对 (key ：array)
-                recursiveDoParserContext.getTargetJsonElement().putKey(keyToken.getContent(), jsonArray);
+                recursiveDoParserContext.getTargetJsonElement().putKV(keyToken.getContent(), jsonArray);
 
                 return 5;
             }
@@ -1288,7 +1289,7 @@ public class JsonObjectParseStatementMachine extends AbstractJsonParseStatementM
             // 基础类型的value
             if(token.getType().isPrimitiveValue()){
                 accept(jsonTokenReader);
-                recursiveDoParserContext.getTargetJsonElement().putKey(keyToken.getContent(), new JsonPrimitiveStr(token.getContent()));
+                recursiveDoParserContext.getTargetJsonElement().putKV(keyToken.getContent(), new JsonPrimitiveStr(token.getContent()));
 
                 return 5;
             }
@@ -1355,12 +1356,12 @@ public class AbstractJsonParseStatementMachine<T extends JsonElement> {
                 return targetJsonElement;
             }
 
-            ParserStateHandler targetStateHandler = stateHandlers[currentState];
             if(currentState >= stateHandlers.length){
                 // 有bug
                 throw new MuJsonParserException(String.format("unknown state! currentState=%s",currentState));
             }
-
+            ParserStateHandler targetStateHandler = stateHandlers[currentState];
+            
             currentState = targetStateHandler.processInState(jsonTokenReader, recursiveDoParserContext);
         }
 
@@ -1392,8 +1393,193 @@ public class RecursiveDoParserContext<T extends JsonElement>  {
     }
 }
 ```
+#####
+* 在解析kv对时，需要先将string类型的key暂时缓存起来，等待后续的value类型结构(object、array或者primitive)也完成解析后，再一并的放入AST中(getTargetJsonElement().putKV)。
+* 解析kv对的value时，当前的实现是基于递归实现的。即当根据当前token的类型创建一个新的对应类型的状态机，去递归的解析更深一层的AST结构。    
+  递归实现的好处是思路简单易懂，不用过多的考虑不同类型结构之间状态的互相转移，通过递归解析子AST的方式天然的屏蔽掉了大量的复杂度。  
+  但缺点也同样明显，在解析层次非常深的json字符串时，递归的层次过深可能会导致当前线程栈溢出，解析失败。
+### json array数组结构解析
+array结构是以“[”开头，“]”结尾的结构，内部可以有0到N个value类型的元素,以逗号做分割，value同样是可以是嵌套的结构。与上面object结构的解析实现方式一样，同样是基于递归实现的。
+##### json array数组结构语法
+```
+array
+    '[' ws ']'
+    '[' elements ']'
 
+elements
+    element
+    element ',' elements
 
+element
+    ws value ws
+
+value
+    object
+    array
+    string
+    number
+    "true"
+    "false"
+    "null"
+```
+![json_array_parser.png](img/json_array_parser.png)
+##### array结构解析状态自动机示意图
+![json_array_state_machine.png](img/json_array_state_machine.png)
+##### array结构解析状态自动机递归实现
+```java
+/**
+ * 基于递归实现的 array类型语法解析状态自动机
+ * */
+public class JsonArrayParseStatementMachine extends AbstractJsonParseStatementMachine<JsonArray> {
+
+    public JsonArrayParseStatementMachine(JsonTokenReader jsonTokenReader) {
+        this.jsonTokenReader = jsonTokenReader;
+        this.targetJsonElement = new JsonArray();
+        this.recursiveDoParserContext = new RecursiveDoParserContext<>(this.targetJsonElement);
+        stateHandlers = new ParserStateHandler[]{
+            new ParserState0Handler(),new ParserState1Handler(),new ParserState2Handler(),
+            new ParserState3Handler(), new ParserState4Handler()
+        };
+    }
+
+    private static class ParserState0Handler implements ParserStateHandler<JsonArray>{
+
+        @Override
+        public int processInState(JsonTokenReader jsonTokenReader, RecursiveDoParserContext<JsonArray> recursiveDoParserContext) {
+            JsonToken token = jsonTokenReader.peek();
+
+            if(token.getType() != JsonTokenTypeEnum.LEFT_BRACKET){
+                throw new MuJsonParserException("unexpected token! index=" + jsonTokenReader.currentIndex());
+            }
+
+            accept(jsonTokenReader);
+            return 1;
+        }
+    }
+
+    private static class ParserState1Handler implements ParserStateHandler<JsonArray>{
+
+        @Override
+        public int processInState(JsonTokenReader jsonTokenReader, RecursiveDoParserContext<JsonArray> recursiveDoParserContext) {
+            JsonToken token = jsonTokenReader.peek();
+
+            if(token.getType() == JsonTokenTypeEnum.RIGHT_BRACKET){
+                accept(jsonTokenReader);
+                return 2;
+            }
+
+            // 嵌套的jsonObject结构
+            if(token.getType() == JsonTokenTypeEnum.LEFT_BRACE){
+                JsonObjectParseStatementMachine jsonObjectParseStatementMachine = new JsonObjectParseStatementMachine(jsonTokenReader);
+
+                JsonObject subJsonObject = jsonObjectParseStatementMachine.parseJsonElement();
+
+                // add一个obj
+                recursiveDoParserContext.getTargetJsonElement().addElement(subJsonObject);
+
+                return 3;
+            }
+
+            // 嵌套的jsonArray结构
+            if(token.getType() == JsonTokenTypeEnum.LEFT_BRACKET){
+                // jsonArray状态机
+                JsonArrayParseStatementMachine jsonArrayParseStatementMachine = new JsonArrayParseStatementMachine(jsonTokenReader);
+
+                JsonArray jsonArray = jsonArrayParseStatementMachine.parseJsonElement();
+
+                // add一个array
+                recursiveDoParserContext.getTargetJsonElement().addElement(jsonArray);
+
+                return 3;
+            }
+
+            // 基础类型的value
+            if(token.getType().isPrimitiveValue()){
+                accept(jsonTokenReader);
+                recursiveDoParserContext.getTargetJsonElement().addElement(new JsonPrimitiveStr(token.getContent()));
+
+                return 3;
+            }
+
+            throw new MuJsonParserException("unexpected token! index=" + jsonTokenReader.currentIndex());
+        }
+    }
+
+    private static class ParserState2Handler implements ParserStateHandler<JsonArray>{
+
+        @Override
+        public int processInState(JsonTokenReader jsonTokenReader, RecursiveDoParserContext<JsonArray> recursiveDoParserContext) {
+            // 终态，直接返回
+            return -1;
+        }
+    }
+
+    private static class ParserState3Handler implements ParserStateHandler<JsonArray>{
+
+        @Override
+        public int processInState(JsonTokenReader jsonTokenReader, RecursiveDoParserContext<JsonArray> recursiveDoParserContext) {
+            JsonToken token = jsonTokenReader.peek();
+
+            if(token.getType() == JsonTokenTypeEnum.RIGHT_BRACKET){
+                accept(jsonTokenReader);
+                return 2;
+            }
+
+            if(token.getType() == JsonTokenTypeEnum.COMMA){
+                accept(jsonTokenReader);
+                return 4;
+            }
+
+            throw new MuJsonParserException("unexpected token! index=" + jsonTokenReader.currentIndex());
+        }
+    }
+
+    private static class ParserState4Handler implements ParserStateHandler<JsonArray>{
+
+        @Override
+        public int processInState(JsonTokenReader jsonTokenReader, RecursiveDoParserContext<JsonArray> recursiveDoParserContext) {
+            JsonToken token = jsonTokenReader.peek();
+
+            // 嵌套的jsonObject结构
+            if(token.getType() == JsonTokenTypeEnum.LEFT_BRACE){
+                JsonObjectParseStatementMachine jsonObjectParseStatementMachine = new JsonObjectParseStatementMachine(jsonTokenReader);
+
+                JsonObject subJsonObject = jsonObjectParseStatementMachine.parseJsonElement();
+
+                // add一个obj
+                recursiveDoParserContext.getTargetJsonElement().addElement(subJsonObject);
+
+                return 3;
+            }
+
+            // 嵌套的jsonArray结构
+            if(token.getType() == JsonTokenTypeEnum.LEFT_BRACKET){
+                // jsonArray状态机
+                JsonArrayParseStatementMachine jsonArrayParseStatementMachine = new JsonArrayParseStatementMachine(jsonTokenReader);
+
+                JsonArray jsonArray = jsonArrayParseStatementMachine.parseJsonElement();
+
+                // add一个array
+                recursiveDoParserContext.getTargetJsonElement().addElement(jsonArray);
+
+                return 3;
+            }
+
+            // 基础类型的value
+            if(token.getType().isPrimitiveValue()){
+                accept(jsonTokenReader);
+                recursiveDoParserContext.getTargetJsonElement().addElement(new JsonPrimitiveStr(token.getContent()));
+
+                return 3;
+            }
+
+            throw new MuJsonParserException("unexpected token! index=" + jsonTokenReader.currentIndex());
+        }
+    }
+}
+```
+#####
+* 相比object结构的状态自动机，array结构的状态自动机则显得比较简单。同样在遇到复杂类型的结构时，通过当前token的类型递归的创建一个新的状态机去构造出子AST(JsonElement)，然后加入到当前JsonArray中(getTargetJsonElement().addElement)。  
 
 ## 4. 基于AST生成beauty json字符串
 

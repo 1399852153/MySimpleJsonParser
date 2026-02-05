@@ -24,11 +24,11 @@ public class AbstractJsonParseStatementMachine<T extends JsonElement> {
                 return targetJsonElement;
             }
 
-            ParserStateHandler targetStateHandler = stateHandlers[currentState];
             if(currentState >= stateHandlers.length){
                 // 有bug
                 throw new MuJsonParserException(String.format("unknown state! currentState=%s",currentState));
             }
+            ParserStateHandler targetStateHandler = stateHandlers[currentState];
 
             currentState = targetStateHandler.processInState(jsonTokenReader, recursiveDoParserContext);
         }

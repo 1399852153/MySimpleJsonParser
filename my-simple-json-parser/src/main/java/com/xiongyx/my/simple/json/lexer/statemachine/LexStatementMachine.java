@@ -41,11 +41,11 @@ public abstract class LexStatementMachine {
                 return;
             }
 
-            LexStateHandler targetStateHandler = stateHandlers[currentState];
             if(currentState >= stateHandlers.length){
                 // 有bug
                 throw new MuJsonParserException(String.format("unknown state! currentState=%s",currentState));
             }
+            LexStateHandler targetStateHandler = stateHandlers[currentState];
 
             currentState = targetStateHandler.processInState(chars,doLexContext,this,oneTokenAcceptResult);
         }

@@ -173,7 +173,7 @@ public class StackBaseJsonParser extends JsonParser {
             JsonParseStackValue parentObject = this.parseStack.peekAndCheck(JsonParseStackValueTypeEnum.JSON_OBJECT);
 
             // 将当前k/v项附加在父object上
-            ((JsonObject)parentObject.getValue()).putKey(keyJsonToken.getContent(), currentJsonObject);
+            ((JsonObject)parentObject.getValue()).putKV(keyJsonToken.getContent(), currentJsonObject);
 
             // 基于下一个token判断状态跳转
             JsonToken nextJsonToken = this.jsonTokenReader.peek();
@@ -184,7 +184,7 @@ public class StackBaseJsonParser extends JsonParser {
                 this.currentStatus = StackBaseJsonParserStatusEnum.PARSE_OBJECT_2;
                 return;
             }else{
-                throw new MuJsonParserException("unexpected token! index=" + jsonTokenReader.currentIndex()+1);
+                throw new MuJsonParserException("unexpected token! index=" + (jsonTokenReader.currentIndex()+1));
             }
 
         }else if(topObjType == JsonParseStackValueTypeEnum.JSON_ARRAY){
@@ -202,7 +202,7 @@ public class StackBaseJsonParser extends JsonParser {
                 this.currentStatus = StackBaseJsonParserStatusEnum.PARSE_ARR_2;
                 return;
             }else{
-                throw new MuJsonParserException("unexpected token! index=" + jsonTokenReader.currentIndex()+1);
+                throw new MuJsonParserException("unexpected token! index=" + (jsonTokenReader.currentIndex()+1));
             }
         }else{
             // 别的情况都说明有问题，不是合法的json
@@ -249,7 +249,7 @@ public class StackBaseJsonParser extends JsonParser {
             // 获取栈顶的jsonObject对象，设置k/v
             JsonParseStackValue topJsonObject = this.parseStack.peekAndCheck(JsonParseStackValueTypeEnum.JSON_OBJECT);
 
-            ((JsonObject) topJsonObject.getValue()).putKey(keyToken.getContent(), new JsonPrimitiveStr(token.getContent()));
+            ((JsonObject) topJsonObject.getValue()).putKV(keyToken.getContent(), new JsonPrimitiveStr(token.getContent()));
 
             accept();
 
@@ -262,7 +262,7 @@ public class StackBaseJsonParser extends JsonParser {
                 this.currentStatus = StackBaseJsonParserStatusEnum.PARSE_OBJECT_2;
                 return;
             }else{
-                throw new MuJsonParserException("unexpected token! index=" + jsonTokenReader.currentIndex()+1);
+                throw new MuJsonParserException("unexpected token! index=" + (jsonTokenReader.currentIndex()+1));
             }
         }
 
@@ -343,7 +343,7 @@ public class StackBaseJsonParser extends JsonParser {
                 this.currentStatus = StackBaseJsonParserStatusEnum.PARSE_ARR_2;
                 return;
             }else{
-                throw new MuJsonParserException("unexpected token! index=" + jsonTokenReader.currentIndex()+1);
+                throw new MuJsonParserException("unexpected token! index=" + (jsonTokenReader.currentIndex()+1));
             }
         }
 
@@ -379,7 +379,7 @@ public class StackBaseJsonParser extends JsonParser {
             JsonParseStackValue parentObject = this.parseStack.peekAndCheck(JsonParseStackValueTypeEnum.JSON_OBJECT);
 
             // 将当前k/v项附加在父object上
-            ((JsonObject)parentObject.getValue()).putKey(keyJsonToken.getContent(), jsonArray);
+            ((JsonObject)parentObject.getValue()).putKV(keyJsonToken.getContent(), jsonArray);
 
             // 基于下一个token判断状态跳转
             JsonToken nextJsonToken = this.jsonTokenReader.peek();
@@ -390,7 +390,7 @@ public class StackBaseJsonParser extends JsonParser {
                 this.currentStatus = StackBaseJsonParserStatusEnum.PARSE_OBJECT_2;
                 return;
             }else{
-                throw new MuJsonParserException("unexpected token! index=" + jsonTokenReader.currentIndex()+1);
+                throw new MuJsonParserException("unexpected token! index=" + (jsonTokenReader.currentIndex()+1));
             }
 
         }else if(topObjType == JsonParseStackValueTypeEnum.JSON_ARRAY){
@@ -408,7 +408,7 @@ public class StackBaseJsonParser extends JsonParser {
                 this.currentStatus = StackBaseJsonParserStatusEnum.PARSE_ARR_2;
                 return;
             }else{
-                throw new MuJsonParserException("unexpected token! index=" + jsonTokenReader.currentIndex()+1);
+                throw new MuJsonParserException("unexpected token! index=" + (jsonTokenReader.currentIndex()+1));
             }
         }else{
             // 别的情况都说明有问题，不是合法的json

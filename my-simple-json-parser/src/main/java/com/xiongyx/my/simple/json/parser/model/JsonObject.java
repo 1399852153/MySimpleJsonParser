@@ -10,7 +10,7 @@ public class JsonObject extends JsonElement{
 
     private final Map<String,JsonElement> objMap = new LinkedHashMap<>();
 
-    public void putKey(String key, JsonElement value) {
+    public void putKV(String key, JsonElement value) {
         objMap.put(key, value);
     }
 
