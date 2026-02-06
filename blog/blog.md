@@ -1582,9 +1582,222 @@ public class JsonArrayParseStatementMachine extends AbstractJsonParseStatementMa
 * 相比object结构的状态自动机，array结构的状态自动机则显得比较简单。同样在遇到复杂类型的结构时，通过当前token的类型递归的创建一个新的状态机去构造出子AST(JsonElement)，然后加入到当前JsonArray中(getTargetJsonElement().addElement)。  
 
 ## 4. 基于AST生成beauty json字符串
+现在我们已经实现了json的词法解析和语法解析，可以将一个原始的合法的json字符串正确的转换成对应的AST了。  
+拿到AST之后理论上可以做很多事情，比如将json串反序列化为java对象。这里我们选择一个较为简单的事情，即将原始的json字符串格式化成更美观的，带有各种缩进的beauty字符串。  
+##### 生成格式化后的beauty json字符串实现
+```java
+public abstract class JsonElement {
 
-## 5. 流式的json解析
+    private static final String BEAUTY_INDENT = "    ";  // 四个空格缩进
+    private static final String BEAUTY_KV_INDENT = " ";  // kv多一个空格
+    private static final String BEAUTY_LINE_BREAK = "\n"; // 换行分割
 
+    /**
+     * 生成美化后的beauty字符串
+     * */
+    public String buildBeautyJsonString(){
+        StringBuilder jsonStringBuilder = new StringBuilder();
+
+        buildJsonString(this,jsonStringBuilder,"",BEAUTY_LINE_BREAK,BEAUTY_INDENT,BEAUTY_KV_INDENT);
+
+        return jsonStringBuilder.toString();
+    }
+
+    private static void buildJsonString(JsonElement jsonElement, StringBuilder jsonStringBuilder, String currentIndent,
+                                        String lineBreak, String indent, String kvIndent){
+        if(jsonElement instanceof JsonPrimitiveStr){
+            jsonStringBuilder.append(jsonElement);
+            return;
+        }
+
+        if(jsonElement instanceof JsonArray){
+            JsonArray jsonArray  = (JsonArray) jsonElement;
+            jsonStringBuilder.append("[").append(lineBreak);
+            List<JsonElement> jsonArrayList = jsonArray.getArray();
+            int i=0;
+            for(JsonElement arrayItem : jsonArrayList){
+                jsonStringBuilder.append(currentIndent).append(indent);
+                // 递归下去，currentIndent多缩进一层
+                buildJsonString(arrayItem,jsonStringBuilder,currentIndent + indent,lineBreak,indent,kvIndent);
+                if(i != jsonArrayList.size()-1){
+                    jsonStringBuilder.append(",");
+                }
+
+                jsonStringBuilder.append(lineBreak);
+                i++;
+            }
+
+            jsonStringBuilder.append(currentIndent).append("]");
+        }
+
+        if(jsonElement instanceof JsonObject){
+            JsonObject jsonObject  = (JsonObject) jsonElement;
+            jsonStringBuilder.append("{").append(lineBreak);
+
+            Map<String, JsonElement> objMap = jsonObject.getObjMap();
+
+            int i=0;
+            for(Map.Entry<String, JsonElement> entry : objMap.entrySet()){
+                String key = entry.getKey();
+                JsonElement value = entry.getValue();
+
+                // key是string类型的，字面量里自带双引号的
+                jsonStringBuilder.append(currentIndent).append(indent).append(key).append(kvIndent).append(":").append(kvIndent);
+                // 递归下去，currentIndent多缩进一层
+                buildJsonString(value,jsonStringBuilder,  currentIndent + indent, lineBreak,indent,kvIndent);
+
+                if(i != objMap.size()-1){
+                    jsonStringBuilder.append(",");
+                }
+
+                jsonStringBuilder.append(lineBreak);
+                i++;
+            }
+
+            jsonStringBuilder.append(currentIndent).append("}");
+        }
+    }
+}
+```
+#####
+* 从源码实现中可以看到，输出美化后的beauty字符串本质上就是一个针对AST树形结构的深度优先遍历处理，只需要注意随着递归深度动态调整缩进长度即可。  
+* 格式化json的方式多种多样，像jackson这样成熟的json处理框架中提供了大量的配置参数允许用户以所想要的方式非常灵活的生成所需格式的json字符串。我们这里的实现不够灵活，性能也不够高效，仅仅是起到一个抛砖引玉的作用。
+##### json beauty示意图
+![json_beauty_demo.png](img/json_beauty_demo.png)
+## 5. 流式的json词法解析
+截止目前我们已经实现了json字符串的解析功能，但还存在两个严重的性能问题需要优化。  
+* 首先是目前的词法分析器是一次性的解析出所有的token后，再交给语法分析去解析的。而这存在一个隐患，因为很多时候我们实际解析的并总是一个合法的json字符串。   
+  如果一个非常长的不合法的json字符串，在词法分析阶段看不出任何的问题(比如在合法的json字符串的前面误追加一个123)，而直到语法分析才发现存在语法错误，那么词法分析阶段花费的计算资源就统统浪费了。  
+* 如果能够在完整的词法分析处理的过程中提前发现语法分析就能避免这个问题了。但实现这个功能不需要将词法分析和语法分析的功能耦合在一起，而是将词法分析器改造成按需加载的流式解析即可。  
+  流式的词法分析能够在语法解析器需要读取token时才触发词法分析，并且一次可以只按需的完整解析出一个完整的token交给parser。  
+* 有了流式的词法分析，像上面举得例子，在合法的非常长的json字符串的前面误加一个123的场景，便能够很早的就发现语法错误，结束解析过程。  
+##### 流式的词法分析解析实现
+```java
+public class StreamJsonLexer extends AbstractJsonLexer{
+
+    public StreamJsonLexer(String jsonString) {
+        super(jsonString);
+    }
+
+    public JsonToken doLex(){
+        if(doLexContext.currentIndex >= jsonStringArray.length){
+            return new JsonToken(JsonTokenTypeEnum.EOF);
+        }
+
+        while(true) {
+            char ch = jsonStringArray[doLexContext.currentIndex];
+
+            // 每一次尝试解析一个完整的token前，都是状态0
+            switch (ch) {
+                case '{':
+                    doLexContext.currentIndex++;
+                    return new JsonToken(JsonTokenTypeEnum.LEFT_BRACE);
+                case '}':
+                    doLexContext.currentIndex++;
+                    return new JsonToken(JsonTokenTypeEnum.RIGHT_BRACE);
+                case '[':
+                    doLexContext.currentIndex++;
+                    return new JsonToken(JsonTokenTypeEnum.LEFT_BRACKET);
+                case ']':
+                    doLexContext.currentIndex++;
+                    return new JsonToken(JsonTokenTypeEnum.RIGHT_BRACKET);
+                case ',':
+                    doLexContext.currentIndex++;
+                    return new JsonToken(JsonTokenTypeEnum.COMMA);
+                case ':':
+                    doLexContext.currentIndex++;
+                    return new JsonToken(JsonTokenTypeEnum.COLON);
+                case '"':
+                    return parseString(jsonStringArray, doLexContext);
+                case 't':
+                    // 尝试解析true关键字
+                    return parseTrueKeyword(jsonStringArray, doLexContext);
+                case 'f':
+                    // 尝试解析false关键字
+                    return parseFalseKeyword(jsonStringArray, doLexContext);
+                case 'n':
+                    // 尝试解析null关键字
+                    return parseNullKeyword(jsonStringArray, doLexContext);
+                default:
+                    // 走其它case
+                    break;
+            }
+
+            // 其它case
+            if (CommonStringUtil.is0_9(ch) || ch == '-') {
+                // number解析
+                return parseNumber(jsonStringArray, doLexContext);
+            } else if (CommonStringUtil.isWhitespace(ch)) {
+                // whiteSpace 直接跳过
+                doLexContext.currentIndex++;
+            } else{
+                throw new MuJsonParserException("unexpected character: " + ch + ",charIndex=" + doLexContext.currentIndex);
+            }
+        }
+    }
+}
+```
+```java
+public class StreamJsonTokenReader implements JsonTokenReader {
+
+    private int currentIndex;
+    private final StreamJsonLexer streamJsonLexer;
+
+    private JsonToken peekToken;
+    private boolean hasNextToken;
+
+    public StreamJsonTokenReader(String jsonString) {
+        this.currentIndex = 0;
+        this.hasNextToken = true;
+        this.streamJsonLexer = new StreamJsonLexer(jsonString);
+    }
+
+    @Override
+    public boolean hasNextToken() {
+        return hasNextToken;
+    }
+
+    @Override
+    public JsonToken nextToken() {
+        JsonToken nextToken = getNextToken();
+        if(nextToken.getType() == JsonTokenTypeEnum.EOF){
+            hasNextToken = false;
+        }
+
+        currentIndex++;
+        return nextToken;
+    }
+
+    private JsonToken getNextToken() {
+        if(peekToken != null){
+            JsonToken nextToken = peekToken;
+            this.peekToken = null;
+            return nextToken;
+        }
+
+        return streamJsonLexer.doLex();
+    }
+
+    @Override
+    public JsonToken peek() {
+        if(peekToken == null) {
+            peekToken = streamJsonLexer.doLex();
+        }
+
+        return peekToken;
+    }
+
+    @Override
+    public int currentIndex() {
+        return currentIndex;
+    }
+}
+```
+##### 
+* 流式的词法解析器StreamJsonLexer的核心工作原理与之前已经实现的静态的StaticJsonLexer别无二致，其底层依赖的代码都是相同的。  
+  最大的区别在于解析出一个完整的token后，在维护当前字符流下标的同时提前终止了后续的词法分析。在StreamJsonTokenReader调用nextToken时，才会按需的惰性解析新的token并返回。
+* 流式的词法解析毫无疑问是性能更好的，主流的json解析器也都是流式的解析。但静态的词法解析更容易理解，也更容易调试，所以在一开始介绍词法分析原理时，我们先实现了静态的词法分析。
 ## 6. 基于堆栈实现的json语法解析
+
 
 ## 总结

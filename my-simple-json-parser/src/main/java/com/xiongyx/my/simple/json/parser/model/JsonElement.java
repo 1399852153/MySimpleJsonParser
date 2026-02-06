@@ -6,12 +6,9 @@ import java.util.Map;
 
 public abstract class JsonElement {
 
-    /**
-     * 4个空格缩进
-     * */
-    private static final String BEAUTY_INDENT = "    ";
-    private static final String BEAUTY_KV_INDENT = " ";
-    private static final String BEAUTY_LINE_BREAK = "\n";
+    private static final String BEAUTY_INDENT = "    ";  // 四个空格缩进
+    private static final String BEAUTY_KV_INDENT = " ";  // kv多一个空格
+    private static final String BEAUTY_LINE_BREAK = "\n"; // 换行分割
 
     public String buildCompactJsonString(){
         StringBuilder jsonStringBuilder = new StringBuilder();
@@ -22,6 +19,9 @@ public abstract class JsonElement {
         return jsonStringBuilder.toString();
     }
 
+    /**
+     * 生成美化后的beauty字符串
+     * */
     public String buildBeautyJsonString(){
         StringBuilder jsonStringBuilder = new StringBuilder();
 
