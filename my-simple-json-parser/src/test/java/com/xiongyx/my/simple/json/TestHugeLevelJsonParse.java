@@ -4,6 +4,7 @@ import com.xiongyx.my.simple.json.parser.model.JsonElement;
 import com.xiongyx.my.simple.json.parser.reader.StreamJsonTokenReader;
 import com.xiongyx.my.simple.json.parser.recursive.RecursiveJsonParser;
 import com.xiongyx.my.simple.json.parser.stackbase.StackBaseJsonParser;
+import com.xiongyx.my.simple.json.util.JackSonUtil;
 import com.xiongyx.my.simple.json.util.TestUtil;
 import org.junit.Assert;
 import org.junit.Test;
@@ -25,23 +26,25 @@ public class TestHugeLevelJsonParse {
         }
 
         Assert.assertTrue(recursiveJsonParseEx instanceof StackOverflowError);
-        System.out.println("level = " + level + " has StackOverflowError!");
+        System.out.println("level = " + level + " recursiveJsonParseEx has StackOverflowError!");
 
         // jackson默认json深度为1000，超过了会报错
-//        {
-//            long start = System.currentTimeMillis();
-//            Object obj = JackSonUtil.string2Obj(hugeLevelJson,Object.class);
-//            System.out.println("jackson parse cost=" + (System.currentTimeMillis() - start));
-//        }
+        {
+            try {
+                Object obj = JackSonUtil.string2Obj(hugeLevelJson, Object.class);
+            }catch (Exception e){
+                // 会报错
+                System.out.println("jackson parse hugeLevelJson error!   " + e.getCause().getMessage());
+            }
+        }
 
         // 基于堆栈的能正确的解析出来，不会StackOverflowError栈溢出
         {
-            long start = System.currentTimeMillis();
             StackBaseJsonParser stackBaseJsonParser = new StackBaseJsonParser(new StreamJsonTokenReader(hugeLevelJson));
             JsonElement obj = stackBaseJsonParser.doParse();
             int arrayLevel = TestUtil.getSpecialJsonArrayLevel(obj);
             Assert.assertEquals(arrayLevel, level - 1);
-            System.out.println("stackBaseJsonParser parse cost=" + (System.currentTimeMillis() - start) + ",arrayLevel=" + arrayLevel);
+            System.out.println("stackBaseJsonParser parse，arrayLevel=" + arrayLevel);
         }
     }
 }

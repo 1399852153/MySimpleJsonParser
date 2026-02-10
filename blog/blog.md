@@ -1796,8 +1796,478 @@ public class StreamJsonTokenReader implements JsonTokenReader {
 ##### 
 * 流式的词法解析器StreamJsonLexer的核心工作原理与之前已经实现的静态的StaticJsonLexer别无二致，其底层依赖的代码都是相同的。  
   最大的区别在于解析出一个完整的token后，在维护当前字符流下标的同时提前终止了后续的词法分析。在StreamJsonTokenReader调用nextToken时，才会按需的惰性解析新的token并返回。
-* 流式的词法解析毫无疑问是性能更好的，主流的json解析器也都是流式的解析。但静态的词法解析更容易理解，也更容易调试，所以在一开始介绍词法分析原理时，我们先实现了静态的词法分析。
+* 流式的词法解析毫无疑问是性能更好的，主流的json解析器也都是流式的解析。但静态的词法解析更容易理解，也更容易调试，所以在一开始介绍词法分析原理时，我们先实现了静态的词法分析，将其作为基础，略微的改造后便实现了流式的词法解析。
 ## 6. 基于堆栈实现的json语法解析
+第二个性能问题则是基于递归实现的json语法解析器受限于较小的线程栈大小，无法处理深度很大的json串。  
+* 我们知道，一个普通的java进程通常都含有大量的线程，因此给每个线程分配的线程栈通常都比较小，比如1m。而递归实现的语法解析器，在每深入一个层次的json子树时便会向栈上压入一些变量，当极端情况下要解析的json串层次过深时，则会出现StackOverflowError，导致解析失败。  
+* 而内存的堆通常都是以GB为单位的，因此如果把递归中隐式压栈的解析逻辑转换为等价的显式基于内存堆的压栈，则可以很好的解决线程栈过小无法处理大深度json串的问题了。  
+* 基于堆栈的语法解析其状态自动机更加复杂，没法像递归实现中那样通过子状态机来屏蔽复杂度，所以理解起来更加费劲一点。
+##### 基于堆栈的语法解析状态自动机示意图
+![stack_base_json_parser_state_machine.png](img/stack_base_json_parser_state_machine.png)
+* 为了尽可能的将状态转移与递归实现的逻辑保持一致，堆栈的状态自动机依然冗余了两个状态(obj-0和arr-0)。
+* 可以看到，基于堆栈的状态自动机会在array与object的解析状态中互相转移，相当于将之前递归实现的各个状态自动机的子状态图合并为了一个大而全的状态自动机。同时，由于还涉及了手动模拟的入栈与出栈处理，因此整体的复杂度比起递归实现要高出一个量级。
+##### json根节点解析状态自动机实现源码
+```java
+/**
+ * 基于堆栈的，非递归的json解析器
+ * */
+public class StackBaseJsonParser extends JsonParser {
 
+    private final JsonParseStack parseStack = new JsonParseStack();
 
+    private StackBaseJsonParserStatusEnum currentStatus;
+
+    public StackBaseJsonParser(JsonTokenReader tokenReader) {
+        super(tokenReader);
+
+        this.currentStatus = StackBaseJsonParserStatusEnum.START_PARSE;
+    }
+
+    private void accept(){
+        jsonTokenReader.nextToken();
+    }
+
+    @Override
+    public JsonElement doParse() {
+        while(jsonTokenReader.hasNextToken()){
+            JsonToken token = jsonTokenReader.peek();
+
+            if(currentStatus == StackBaseJsonParserStatusEnum.END_PARSE){
+                break;
+            }
+
+            switch (currentStatus){
+                case START_PARSE:
+                    processInStartParse(token);
+                    break;
+                case PARSE_OBJECT_0:
+                    processInParseObject0(token);
+                    break;
+                case PARSE_OBJECT_1:
+                    processInParseObject1(token);
+                    break;
+                case PARSE_OBJECT_2:
+                    processInParseObject2(token);
+                    break;
+                case PARSE_OBJECT_3:
+                    processInParseObject3(token);
+                    break;
+                case PARSE_OBJECT_4:
+                    processInParseObject4(token);
+                    break;
+                case PARSE_OBJECT_5:
+                    processInParseObject5(token);
+                    break;
+                case PARSE_OBJECT_6:
+                    processInParseObject6(token);
+                    break;
+                case PARSE_ARR_0:
+                    processInParseArr0(token);
+                    break;
+                case PARSE_ARR_1:
+                    processInParseArr1(token);
+                    break;
+                case PARSE_ARR_2:
+                    processInParseArr2(token);
+                    break;
+                case PARSE_ARR_3:
+                    processInParseArr3(token);
+                    break;
+                default:
+                    throw new MuJsonParserException("Unexpected currentStatus: " + currentStatus);
+            }
+        }
+
+        // 如果json字符串是合法的，那么最后栈顶必然是有且唯一的一个JsonElement类型的对象
+        if(this.parseStack.size() != 1){
+            throw new MuJsonParserException("after parse，stack element size > 1! stack=" + this.parseStack);
+        }
+
+        JsonParseStackValue object = this.parseStack.pop();
+        return (JsonElement) object.getValue();
+    }
+
+    private void processInStartParse(JsonToken token){
+        if (token.getType() == JsonTokenTypeEnum.LEFT_BRACE) {
+            this.currentStatus = StackBaseJsonParserStatusEnum.PARSE_OBJECT_0;
+            this.parseStack.push(new JsonParseStackValue(JsonParseStackValueTypeEnum.JSON_OBJECT,new JsonObject()));
+            return;
+        }
+
+        if (token.getType() == JsonTokenTypeEnum.LEFT_BRACKET) {
+            this.currentStatus = StackBaseJsonParserStatusEnum.PARSE_ARR_0;
+            this.parseStack.push(new JsonParseStackValue(JsonParseStackValueTypeEnum.JSON_ARRAY,new JsonArray()));
+            return;
+        }
+
+        if (token.getType().isPrimitiveValue()) {
+            accept();
+            this.currentStatus = StackBaseJsonParserStatusEnum.END_PARSE;
+            this.parseStack.push(new JsonParseStackValue(JsonParseStackValueTypeEnum.JSON_PRIMITIVE,new JsonPrimitiveStr(token.getContent())));
+            return;
+        }
+
+        // 第一个token，不属于json规则的f(1)集合
+        throw new MuJsonParserException("unexpected start json token! token=" + jsonTokenReader.currentIndex());
+    }
+
+    private void processInParseObject0(JsonToken token){
+        if(token.getType() != JsonTokenTypeEnum.LEFT_BRACE){
+            throw new MuJsonParserException("unexpected token! index=" + jsonTokenReader.currentIndex());
+        }
+
+        accept();
+
+        this.currentStatus = StackBaseJsonParserStatusEnum.PARSE_OBJECT_1;
+    }
+
+    private void processInParseObject1(JsonToken token){
+        if(token.getType() == JsonTokenTypeEnum.RIGHT_BRACE){
+            this.currentStatus = StackBaseJsonParserStatusEnum.PARSE_OBJECT_2;
+            return;
+        }
+
+        if(token.getType() == JsonTokenTypeEnum.STRING){
+            // 把key先压入栈中，然后等构造kv对时弹出
+            this.parseStack.push(new JsonParseStackValue(JsonParseStackValueTypeEnum.JSON_KEY,token));
+            accept();
+            this.currentStatus = StackBaseJsonParserStatusEnum.PARSE_OBJECT_3;
+            return;
+        }
+
+        throw new MuJsonParserException("unexpected token! index=" + jsonTokenReader.currentIndex());
+    }
+
+    private void processInParseObject2(JsonToken token){
+        // 遇到'}'才会进来
+        if(token.getType() != JsonTokenTypeEnum.RIGHT_BRACE){
+            throw new MuJsonParserException("unexpected token! index=" + jsonTokenReader.currentIndex());
+        }else{
+            accept();
+        }
+
+        // 当前栈顶必定是JsonObject，先将其弹出，然后看栈顶的元素类型判断
+        JsonParseStackValue currentJsonObjectStackValue = this.parseStack.popAndCheck(JsonParseStackValueTypeEnum.JSON_OBJECT);
+        if(this.parseStack.isEmpty()){
+            // 说明是root的JsonObject解析完了，再推回去直接返回
+            this.parseStack.push(currentJsonObjectStackValue);
+            this.currentStatus = StackBaseJsonParserStatusEnum.END_PARSE;
+            return;
+        }
+
+        JsonObject currentJsonObject = (JsonObject) currentJsonObjectStackValue.getValue();
+
+        JsonParseStackValueTypeEnum topObjType = this.parseStack.peekTopType();
+
+        if(topObjType == JsonParseStackValueTypeEnum.JSON_KEY){
+            // 如果是json_key，说明是当前jsonObject是父object的一个k/v项中的value。
+            JsonParseStackValue keyStackValue = this.parseStack.popAndCheck(JsonParseStackValueTypeEnum.JSON_KEY);
+            JsonToken keyJsonToken = (JsonToken) keyStackValue.getValue();
+            JsonParseStackValue parentObject = this.parseStack.peekAndCheck(JsonParseStackValueTypeEnum.JSON_OBJECT);
+
+            // 将当前k/v项附加在父object上
+            ((JsonObject)parentObject.getValue()).putKV(keyJsonToken.getContent(), currentJsonObject);
+
+            // 基于下一个token判断状态跳转
+            JsonToken nextJsonToken = this.jsonTokenReader.peek();
+            if(nextJsonToken.getType() == JsonTokenTypeEnum.COMMA){
+                this.currentStatus = StackBaseJsonParserStatusEnum.PARSE_OBJECT_5;
+                return;
+            }else if (nextJsonToken.getType() == JsonTokenTypeEnum.RIGHT_BRACE){
+                this.currentStatus = StackBaseJsonParserStatusEnum.PARSE_OBJECT_2;
+                return;
+            }else{
+                throw new MuJsonParserException("unexpected token! index=" + (jsonTokenReader.currentIndex()+1));
+            }
+
+        }else if(topObjType == JsonParseStackValueTypeEnum.JSON_ARRAY){
+            // 说明当前jsonObject是jsonArray的一个元素
+
+            JsonParseStackValue parentArr = this.parseStack.peekAndCheck(JsonParseStackValueTypeEnum.JSON_ARRAY);
+            ((JsonArray)parentArr.getValue()).addElement(currentJsonObject);
+
+            // 基于下一个token判断状态跳转
+            JsonToken nextJsonToken = this.jsonTokenReader.peek();
+            if(nextJsonToken.getType() == JsonTokenTypeEnum.COMMA){
+                this.currentStatus = StackBaseJsonParserStatusEnum.PARSE_ARR_3;
+                return;
+            }else if (nextJsonToken.getType() == JsonTokenTypeEnum.RIGHT_BRACKET){
+                this.currentStatus = StackBaseJsonParserStatusEnum.PARSE_ARR_2;
+                return;
+            }else{
+                throw new MuJsonParserException("unexpected token! index=" + (jsonTokenReader.currentIndex()+1));
+            }
+        }else{
+            // 别的情况都说明有问题，不是合法的json
+            throw new MuJsonParserException("unexpected token! index=" + jsonTokenReader.currentIndex());
+        }
+    }
+
+    private void processInParseObject3(JsonToken token){
+        if(token.getType() == JsonTokenTypeEnum.COLON){
+            accept();
+            this.currentStatus = StackBaseJsonParserStatusEnum.PARSE_OBJECT_4;
+            return;
+        }
+
+        throw new MuJsonParserException("unexpected token! index=" + jsonTokenReader.currentIndex());
+    }
+
+    private void processInParseObject4(JsonToken token){
+        // 嵌套的jsonObject结构
+        if(token.getType() == JsonTokenTypeEnum.LEFT_BRACE){
+            // 发现'{'，栈上推进一个JsonObject
+            this.parseStack.push(new JsonParseStackValue(JsonParseStackValueTypeEnum.JSON_OBJECT, new JsonObject()));
+            accept();
+            this.currentStatus = StackBaseJsonParserStatusEnum.PARSE_OBJECT_1;
+            return;
+        }
+
+        // 嵌套的jsonArray结构
+        if(token.getType() == JsonTokenTypeEnum.LEFT_BRACKET){
+            // 发现'['，栈上推进一个JsonArr
+            this.parseStack.push(new JsonParseStackValue(JsonParseStackValueTypeEnum.JSON_ARRAY, new JsonArray()));
+            accept();
+            this.currentStatus = StackBaseJsonParserStatusEnum.PARSE_ARR_1;
+            return;
+        }
+
+        // 基础类型的value
+        if(token.getType().isPrimitiveValue()){
+            JsonParseStackValue jsonKeyToken = this.parseStack.popAndCheck(JsonParseStackValueTypeEnum.JSON_KEY);
+
+            JsonToken keyToken  = (JsonToken) jsonKeyToken.getValue();
+            Assert.assertTrue(keyToken.getType() == JsonTokenTypeEnum.STRING,"parse object keyToken not match!");
+
+            // 获取栈顶的jsonObject对象，设置k/v
+            JsonParseStackValue topJsonObject = this.parseStack.peekAndCheck(JsonParseStackValueTypeEnum.JSON_OBJECT);
+
+            ((JsonObject) topJsonObject.getValue()).putKV(keyToken.getContent(), new JsonPrimitiveStr(token.getContent()));
+
+            accept();
+
+            // 基于下一个token判断状态跳转
+            JsonToken nextJsonToken = this.jsonTokenReader.peek();
+            if(nextJsonToken.getType() == JsonTokenTypeEnum.COMMA){
+                this.currentStatus = StackBaseJsonParserStatusEnum.PARSE_OBJECT_5;
+                return;
+            }else if (nextJsonToken.getType() == JsonTokenTypeEnum.RIGHT_BRACE){
+                this.currentStatus = StackBaseJsonParserStatusEnum.PARSE_OBJECT_2;
+                return;
+            }else{
+                throw new MuJsonParserException("unexpected token! index=" + (jsonTokenReader.currentIndex()+1));
+            }
+        }
+
+        throw new MuJsonParserException("unexpected token! index=" + jsonTokenReader.currentIndex());
+    }
+
+    private void processInParseObject5(JsonToken token){
+        if(token.getType() == JsonTokenTypeEnum.COMMA){
+            accept();
+            this.currentStatus = StackBaseJsonParserStatusEnum.PARSE_OBJECT_6;
+            return;
+        }
+
+        throw new MuJsonParserException("unexpected token! index=" + jsonTokenReader.currentIndex());
+    }
+
+    private void processInParseObject6(JsonToken token){
+        if(token.getType() == JsonTokenTypeEnum.STRING){
+            // 把key先压入栈中，然后等构造kv对时弹出
+            this.parseStack.push(new JsonParseStackValue(JsonParseStackValueTypeEnum.JSON_KEY,token));
+            accept();
+            this.currentStatus = StackBaseJsonParserStatusEnum.PARSE_OBJECT_3;
+            return;
+        }
+
+        throw new MuJsonParserException("unexpected token! index=" + jsonTokenReader.currentIndex());
+    }
+
+    private void processInParseArr0(JsonToken token){
+        if(token.getType() == JsonTokenTypeEnum.LEFT_BRACKET){
+            accept();
+            this.currentStatus = StackBaseJsonParserStatusEnum.PARSE_ARR_1;
+            return;
+        }
+
+        throw new MuJsonParserException("unexpected token! index=" + jsonTokenReader.currentIndex());
+    }
+
+    private void processInParseArr1(JsonToken token){
+        if(token.getType() == JsonTokenTypeEnum.RIGHT_BRACKET){
+            this.currentStatus = StackBaseJsonParserStatusEnum.PARSE_ARR_2;
+            return;
+        }
+
+        // 嵌套的jsonObject结构
+        if(token.getType() == JsonTokenTypeEnum.LEFT_BRACE){
+            // 发现'{'，栈上推进一个JsonObject
+            this.parseStack.push(new JsonParseStackValue(JsonParseStackValueTypeEnum.JSON_OBJECT, new JsonObject()));
+            accept();
+            this.currentStatus = StackBaseJsonParserStatusEnum.PARSE_OBJECT_1;
+            return;
+        }
+
+        // 嵌套的jsonArray结构
+        if(token.getType() == JsonTokenTypeEnum.LEFT_BRACKET){
+            // 发现'['，栈上推进一个JsonArr
+            this.parseStack.push(new JsonParseStackValue(JsonParseStackValueTypeEnum.JSON_ARRAY, new JsonArray()));
+            accept();
+            this.currentStatus = StackBaseJsonParserStatusEnum.PARSE_ARR_1;
+            return;
+        }
+
+        // 基础类型的value
+        if(token.getType().isPrimitiveValue()){
+            // 获取栈顶的jsonArr对象，添加一个元素
+            JsonParseStackValue topJsonArr = this.parseStack.peekAndCheck(JsonParseStackValueTypeEnum.JSON_ARRAY);
+
+            ((JsonArray) topJsonArr.getValue()).addElement(new JsonPrimitiveStr(token.getContent()));
+
+            accept();
+
+            // 基于下一个token判断状态跳转
+            JsonToken nextJsonToken = this.jsonTokenReader.peek();
+            if(nextJsonToken.getType() == JsonTokenTypeEnum.COMMA){
+                this.currentStatus = StackBaseJsonParserStatusEnum.PARSE_ARR_3;
+                return;
+            }else if (nextJsonToken.getType() == JsonTokenTypeEnum.RIGHT_BRACKET){
+                this.currentStatus = StackBaseJsonParserStatusEnum.PARSE_ARR_2;
+                return;
+            }else{
+                throw new MuJsonParserException("unexpected token! index=" + (jsonTokenReader.currentIndex()+1));
+            }
+        }
+
+        throw new MuJsonParserException("unexpected token! index=" + jsonTokenReader.currentIndex());
+    }
+
+    private void processInParseArr2(JsonToken token){
+        // 遇到']'才会进来
+        if(token.getType() != JsonTokenTypeEnum.RIGHT_BRACKET){
+            throw new MuJsonParserException("unexpected token! index=" + jsonTokenReader.currentIndex());
+        }else{
+            accept();
+        }
+
+        // 当前栈顶必定是JsonArray，先将其弹出，然后看栈顶的元素类型判断
+        JsonParseStackValue currentJsonObjectStackValue = this.parseStack.popAndCheck(JsonParseStackValueTypeEnum.JSON_ARRAY);
+        if(this.parseStack.isEmpty()){
+            // 说明是root的JsonArr解析完了，再推回去直接返回
+            this.parseStack.push(currentJsonObjectStackValue);
+            this.currentStatus = StackBaseJsonParserStatusEnum.END_PARSE;
+            return;
+        }
+
+        JsonArray jsonArray = (JsonArray) currentJsonObjectStackValue.getValue();
+
+        JsonParseStackValueTypeEnum topObjType = this.parseStack.peekTopType();
+
+        if(topObjType == JsonParseStackValueTypeEnum.JSON_KEY){
+            // 如果是json_key，说明是当前jsonArray是父object的一个k/v项中的value。
+            JsonParseStackValue keyStackValue = this.parseStack.popAndCheck(JsonParseStackValueTypeEnum.JSON_KEY);
+            JsonToken keyJsonToken = (JsonToken) keyStackValue.getValue();
+
+            JsonParseStackValue parentObject = this.parseStack.peekAndCheck(JsonParseStackValueTypeEnum.JSON_OBJECT);
+
+            // 将当前k/v项附加在父object上
+            ((JsonObject)parentObject.getValue()).putKV(keyJsonToken.getContent(), jsonArray);
+
+            // 基于下一个token判断状态跳转
+            JsonToken nextJsonToken = this.jsonTokenReader.peek();
+            if(nextJsonToken.getType() == JsonTokenTypeEnum.COMMA){
+                this.currentStatus = StackBaseJsonParserStatusEnum.PARSE_OBJECT_5;
+                return;
+            }else if (nextJsonToken.getType() == JsonTokenTypeEnum.RIGHT_BRACE){
+                this.currentStatus = StackBaseJsonParserStatusEnum.PARSE_OBJECT_2;
+                return;
+            }else{
+                throw new MuJsonParserException("unexpected token! index=" + (jsonTokenReader.currentIndex()+1));
+            }
+
+        }else if(topObjType == JsonParseStackValueTypeEnum.JSON_ARRAY){
+            // 说明当前jsonObject是jsonArray的一个元素
+
+            JsonParseStackValue parentArr = this.parseStack.peekAndCheck(JsonParseStackValueTypeEnum.JSON_ARRAY);
+            ((JsonArray)parentArr.getValue()).addElement(jsonArray);
+
+            // 基于下一个token判断状态跳转
+            JsonToken nextJsonToken = this.jsonTokenReader.peek();
+            if(nextJsonToken.getType() == JsonTokenTypeEnum.COMMA){
+                this.currentStatus = StackBaseJsonParserStatusEnum.PARSE_ARR_3;
+                return;
+            }else if (nextJsonToken.getType() == JsonTokenTypeEnum.RIGHT_BRACKET){
+                this.currentStatus = StackBaseJsonParserStatusEnum.PARSE_ARR_2;
+                return;
+            }else{
+                throw new MuJsonParserException("unexpected token! index=" + (jsonTokenReader.currentIndex()+1));
+            }
+        }else{
+            // 别的情况都说明有问题，不是合法的json
+            throw new MuJsonParserException("unexpected token! index=" + jsonTokenReader.currentIndex());
+        }
+    }
+
+    private void processInParseArr3(JsonToken token){
+        if(token.getType() == JsonTokenTypeEnum.COMMA){
+            accept();
+            this.currentStatus = StackBaseJsonParserStatusEnum.PARSE_ARR_1;
+            return;
+        }
+
+        throw new MuJsonParserException("unexpected token! index=" + jsonTokenReader.currentIndex());
+    }
+}
+
+```
+##### 比较堆栈与递归实现性能差异的demo
+我们可以很简单的构造出一个非常深嵌套层次的json串，即由连续N个“[”和连续N个“]”构成的json字符串。即根节点为数组，同时每个数组中都有且仅有一个子元素，子元素的类型依然是数组，依次类推。  
+```java
+public class TestHugeLevelJsonParse {
+
+    @Test
+    public void testHugeLevelJsonParse() {
+        int level = 3500;
+        String hugeLevelJson = TestUtil.buildHugeLevelJson(level);
+
+        // 3500层的深度，会StackOverflowError栈溢出
+        Error recursiveJsonParseEx = null;
+        try{
+            RecursiveJsonParser recursiveJsonParser = new RecursiveJsonParser(new StreamJsonTokenReader(hugeLevelJson));
+            JsonElement obj = recursiveJsonParser.doParse();
+        }catch (Error e){
+            recursiveJsonParseEx = e;
+        }
+
+        Assert.assertTrue(recursiveJsonParseEx instanceof StackOverflowError);
+        System.out.println("level = " + level + " recursiveJsonParseEx has StackOverflowError!");
+
+        // jackson默认json深度为1000，超过了会报错
+        {
+            try {
+                Object obj = JackSonUtil.string2Obj(hugeLevelJson, Object.class);
+            }catch (Exception e){
+                // 会报错
+                System.out.println("jackson parse hugeLevelJson error!   " + e.getCause().getMessage());
+            }
+        }
+
+        // 基于堆栈的能正确的解析出来，不会StackOverflowError栈溢出
+        {
+            StackBaseJsonParser stackBaseJsonParser = new StackBaseJsonParser(new StreamJsonTokenReader(hugeLevelJson));
+            JsonElement obj = stackBaseJsonParser.doParse();
+            int arrayLevel = TestUtil.getSpecialJsonArrayLevel(obj);
+            Assert.assertEquals(arrayLevel, level - 1);
+            System.out.println("stackBaseJsonParser parse，arrayLevel=" + arrayLevel);
+        }
+    }
+}
+```
+![test_huge_level_json_parse.png](img/test_huge_level_json_parse.png)
 ## 总结
+到这里，我们已经如开头所说的那般，一步一步的从零开始实现了一个简单的json解析器。  
+虽然网络上已经有着大量关于json解析器实现原理的博客，甚至利用ai都能帮你实现的大差不差。但是纸上得来终觉浅，绝知此事要躬行，想要更好的学习编译原理，去理解乃至实现更复杂的编译器、解释器，通过自己动手去体会那些晦涩抽象的原理也许是一种效率较低但长远看受益无穷的学习方式。  
+#####
+博客中展示的完整代码在我的github上：https://github.com/1399852153/MySimpleJsonParser (main分支)。    
+希望能够帮助到对json解析或是编译原理感兴趣的读者，内容如有错误，还请多多指教。  

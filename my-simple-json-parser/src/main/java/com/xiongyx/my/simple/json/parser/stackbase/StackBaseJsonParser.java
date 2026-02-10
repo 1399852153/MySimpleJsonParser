@@ -16,7 +16,7 @@ import com.xiongyx.my.simple.json.parser.stackbase.stack.JsonParseStackValueType
 import com.xiongyx.my.simple.json.util.Assert;
 
 /**
- * 基于栈的，非递归的json解析器
+ * 基于堆栈的，非递归的json解析器
  * */
 public class StackBaseJsonParser extends JsonParser {
 
@@ -108,8 +108,9 @@ public class StackBaseJsonParser extends JsonParser {
         }
 
         if (token.getType().isPrimitiveValue()) {
-            this.currentStatus = StackBaseJsonParserStatusEnum.PARSE_OBJECT_0;
             accept();
+            this.currentStatus = StackBaseJsonParserStatusEnum.END_PARSE;
+
             this.parseStack.push(new JsonParseStackValue(JsonParseStackValueTypeEnum.JSON_PRIMITIVE,new JsonPrimitiveStr(token.getContent())));
             return;
         }
