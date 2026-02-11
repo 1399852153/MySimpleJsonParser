@@ -1,14 +1,5 @@
 # 从零开始实现一个简易json解析器
 
-## 0. 写在前面
-这篇文章记录了我如何**从零实现一个简易json解析器**：不依赖任何第三方库，只用Java手写词法分析器、语法分析器和AST，并在此基础上实现json的美化输出，同时比较**递归解析**与**基于堆栈解析**在性能与栈深度上的差异。
-
-适合阅读本篇文章的同学大致具备以下背景：  
-- 熟悉 Java 语法，能看懂基础集合、枚举、异常等
-- 听说过编译原理里的一些基础概念（词法分析、语法分析、AST 等），但可能没有亲手实现过
-- 想通过一个**小而完整**的项目来练习“从文法到状态机再到代码”的全过程
----
-
 ## 1. MySimpleJsonParser 介绍与整体设计
 最近在学习编译原理相关的知识。为了加深对词法分析、语法分析阶段中诸如**有限自动机、自顶向下语法分析、AST** 等概念的理解，我选择实现一个json解析器作为练手机会。
 #####
@@ -23,9 +14,9 @@
 2. **`StreamJsonLexer`**：按需惰性解析token的流式json词法分析器
 3. **`RecursiveJsonParser`**：基于递归的json语法解析器
 4. **`StackBaseJsonParser`**：基于显式堆栈的json语法解析器（非递归）
-5. **AST 结构**：`JsonElement`及其子类，并基于AS生成Pretty JSON字符串的工具方法
+5. **AST结构**：JsonElement及其子类，并基于AST生成Pretty JSON字符串的工具方法
 
-## 2. json词法分析实现 从文法到状态机
+## 2. 从文法到词法分析器：手写 json lexer
 词法分析阶段的任务是：将原始的字符流，按照json的词法规则，转换为token流。之后的语法分析会在token流的基础上按文法规则构建AST。
 
 ### 2.1 json文法与基本结构
@@ -38,17 +29,17 @@
 6. **whitespace**：由任意个space空格、linefeed换行符、carriage return回车符以及tab制表符组成，本身无意义，仅起到分割的作用。
 
 #####
-仔细分析后，发现string结构、number结构和whitespace结构以及`{`、`}`、`[`、`]` 这类符号都是基本结构，是自身无法再嵌套其它结构的基本单元，因此其都是最终AST中的叶子节点，而object、array和value都是可以互相嵌套的复合结构，其都是AST中的非叶子节点。   
-对于这些可嵌套的非AST叶子节点，必须在语法分析中才能完成解析；而string结构、number结构、false、true、null关键字以及“{”、“]”等特殊符号，则适合在词法分析中完成解析。   
-因为json语法中，无论原始的json字符串中一个number字面量有多复杂(比如-2.03214e+6605218)，在语法分析中都只需要当做一个完整的number类型的token来处理即可。   
-词法分析专注于局部，将原始的字符流按照词法规则正确的转换为token流；而语法分析则专注于将token流按照语法规则转换为正确的AST树结构。  
-通过将整个分析流程，有机的分解为词法分析和语法分析等等不同步骤，每个步骤都依赖于前一个步骤的产出的分层设计，能够很好的控制解析器整体的复杂度，方便调试的同时性能上也有很大的提升。  
-因此，除了少数非常简单的语言外，几乎所有的编译器都会采用分层的架构来实现整体的功能。
+* 仔细分析后，发现string结构、number结构和whitespace结构以及`{`、`}`、`[`、`]` 这类符号都是基本结构，是自身无法再嵌套其它结构的基本单元，因此其都是最终AST中的叶子节点，而object、array和value都是可以互相嵌套的复合结构，其都是AST中的非叶子节点。
+* 对于这些可嵌套的非AST叶子节点，必须在语法分析中才能完成解析；而string结构、number结构、false、true、null关键字以及“{”、“]”等特殊符号，则适合在词法分析中完成解析。   
+  因为json语法中，无论原始的json字符串中一个number字面量有多复杂(比如-2.03214e+6605218)，在语法分析中都只需要当做一个完整的number类型的token来处理即可。
+* 词法分析专注于局部，将原始的字符流按照词法规则正确的转换为token流；而语法分析则专注于将token流按照语法规则转换为正确的AST树结构。  
+  通过将整个分析流程，有机的分解为词法分析和语法分析等等不同步骤，每个步骤都依赖于前一个步骤的产出的分层设计，能够很好的控制解析器整体的复杂度，方便调试的同时性能上也有很大的提升。  
+  因此，除了少数非常简单的语言外，几乎所有的编译器都会采用分层的架构来实现整体的功能。
 
 ### 2.2 token类型定义
 从文法角度，json中允许的token类型大致可分为三类：
-1. 特殊符号：诸如“{”、“}”、“[”、“]”、“,”,“:”,“"”等独立的字符是json中的特殊符号
-2. 关键字：完整且独立的true、false、null被视为关键字
+1. 特殊符号：诸如“`{`”、“`}`”、“`[`”、“`]`”、“`,`”,“`:`”,“`"`”等独立的字符是json中的特殊符号
+2. 关键字：完整且独立的`true`、`false`、`null`被视为关键字
 3. 字面量：number、string这两种复杂字符流字面量
 #####
 因此我们可以先定义出json的token类型枚举。其中EOF类型是额外的，用于在完成整个字符流的词法分析后，追加到token流的最后，标志着token流的结束。
@@ -901,54 +892,9 @@ public class KeywordTrueLexStatementMachine extends KeywordLexStatementMachine{
     }
 }
 ```
-```java
-/**
- * 解析关键字false的状态自动机
- * */
-public class KeywordFalseLexStatementMachine extends KeywordLexStatementMachine{
-
-    private static final String KEYWORD = JsonTokenTypeEnum.FALSE.getKey();
-    private static final Map<Integer,Boolean> staticIsFinalStateMap;
-    private static final LexStateHandler[] lexStateHandlers;
-
-    static {
-        staticIsFinalStateMap = buildIsFinalStateMap(KEYWORD);
-        lexStateHandlers = buildLexStateHandlers(KEYWORD);
-    }
-
-    public KeywordFalseLexStatementMachine() {
-        super(KEYWORD);
-
-        super.isFinalStateMap = staticIsFinalStateMap;
-        super.stateHandlers = lexStateHandlers;
-    }
-}
-```
-```java
-/**
- * 解析关键字null的状态自动机
- * */
-public class KeywordNullLexStatementMachine extends KeywordLexStatementMachine{
-
-    private static final String KEYWORD = JsonTokenTypeEnum.NULL.getKey();
-    private static final Map<Integer,Boolean> staticIsFinalStateMap;
-    private static final LexStateHandler[] lexStateHandlers;
-
-    static {
-        staticIsFinalStateMap = buildIsFinalStateMap(KEYWORD);
-        lexStateHandlers = buildLexStateHandlers(KEYWORD);
-    }
-
-    public KeywordNullLexStatementMachine() {
-        super(KEYWORD);
-
-        super.isFinalStateMap = staticIsFinalStateMap;
-        super.stateHandlers = lexStateHandlers;
-    }
-}
-```
 #####
 * 由于关键字的解析都是最简单的单向状态转移，所以单独抽象出了KeywordLexStatementMachine类，其根据构造方法中传入的关键字字面量，自动生成对应数量的LexStateHandler集合和IsFinalStateMap。
+* false和null关键字的词法解析与true基本一致，这里省略掉
 ##### 2.7 jsonTokenReader
 至此，我们就已经实现了基本的json词法分析能力，能够将json字符串一次性的解析成token列表供下一阶段的语法分析使用。   
 但在语法解析阶段，parser更希望接收的是能够自己记忆当前所处理token的token流，而不是一个孤零零的List<JsonToken>，所以这里简单的以迭代器的方式包装一下方便使用。  
@@ -1015,7 +961,7 @@ public class StaticJsonTokenReader implements JsonTokenReader {
     }
 ```
 ![static_json_lexer_demo_result.png](img/static_json_lexer_demo_result.png)
-## 3. json语法分析实现
+## 3. 手写 json 语法分析器：从 token 到 AST
 语法分析阶段，接收词法分析阶段输出的token流，需要按照语法规则解析出正确的AST抽象语法树。  
 在json的AST中其实本质上只有三种类型的元素：
 - `JsonObject`：对象
@@ -1036,7 +982,7 @@ public class JsonObject extends JsonElement{
 
     private final Map<String,JsonElement> objMap = new LinkedHashMap<>();
 
-    public void putKey(String key, JsonElement value) {
+    public void putKV(String key, JsonElement value) {
         objMap.put(key, value);
     }
 
@@ -1694,9 +1640,9 @@ public abstract class JsonElement {
 ![json_beauty_demo.png](img/json_beauty_demo.png)
 ## 5. 流式的json词法解析
 截止目前我们已经实现了json字符串的解析功能，但还存在两个严重的性能问题需要优化。
-* 首先是目前的词法分析器是一次性的解析出所有的token后，再交给语法分析去解析的。而这存在一个隐患，因为很多时候我们实际解析的并总是一个合法的json字符串。   
-  如果一个非常长的不合法的json字符串，在词法分析阶段看不出任何的问题(比如在合法的json字符串的前面误追加一个123)，而直到语法分析才发现存在语法错误，那么词法分析阶段花费的计算资源就统统浪费了。  
-* 如果能够在完整的词法分析处理的过程中提前发现语法分析就能避免这个问题。但实现这个功能不需要将词法分析和语法分析的功能耦合在一起，而是将词法分析器改造成按需加载的流式解析即可。  
+* 首先是目前的词法分析器是一次性的解析出所有的token后，再交给语法分析去解析的。而这存在一个隐患，因为很多时候我们实际解析的并不总是一个合法的json字符串。   
+  如果一个非常长的不合法的json字符串，在词法分析阶段看不出任何的问题(比如在合法的以`{`开头的json字符串的前面误追加一个123)，而直到语法分析才发现存在语法错误，那么词法分析阶段花费的计算资源就统统浪费了。  
+* 如果能够在完整的词法分析处理的过程中提前发现语法错误就能避免这个问题。但实现这个功能不需要将词法分析和语法分析的功能耦合在一起，而是将词法分析器改造成按需加载的流式解析即可。  
   流式的词法分析能够在语法解析器需要读取token时才触发词法分析，并且一次可以只按需的完整解析出一个完整的token交给parser。  
 * 有了流式的词法分析，像上面举得例子，在合法的非常长的json字符串的前面误加一个123的场景，便能够很早的就发现语法错误，结束解析过程。  
 ##### 流式的词法分析解析实现
