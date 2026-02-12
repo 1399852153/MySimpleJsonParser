@@ -22,7 +22,7 @@
 ### 2.1 json文法与基本结构
 根据[json官方文档](https://www.json.org/json-en.html)，json中主要包含以下几类结构：
 1. **string**：由双引号包住的Unicode字符串，可包含转义字符。一个字符（character）也可以是一个单独的字符串（character string）。
-2. **number**：以数字或`-`开头，可以是整数、小数、、负数或者是包含一个E/e符号的指数。
+2. **number**：以数字或`-`开头，可以是整数、小数、负数或者是包含一个E/e符号的指数。
 3. **object**：以“`{`” 开头，以“`}`”结尾。
 4. **array**：以“`[`” 开头，以“`]`”结尾。
 5. **value**：可以是string、number、`true`(关键字)、`false`(关键字)、`null`(关键字)、object或者array。
